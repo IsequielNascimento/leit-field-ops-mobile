@@ -11,6 +11,7 @@ export default function RootLayout() {
     <DatabaseProvider>
       <Stack>
         <Stack.Screen name="index" options={{ headerShown: false }} />
+        <Stack.Screen name="points/[pointId]" options={{ headerShown: false }} />
       </Stack>
     </DatabaseProvider>
   );

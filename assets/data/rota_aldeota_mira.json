@@ -1,0 +1,102 @@
+{
+  "routeId": "LEIT-ALDEOTA-001",
+  "routeName": "Rota Aldeota - Teste Mobile",
+  "date": "2026-08-20",
+  "city": "Fortaleza",
+  "state": "CE",
+  "neighborhood": "Aldeota",
+  "status": "assigned",
+  "points": [
+    {
+      "id": 101,
+      "order": 1,
+      "installationCode": "LEIT-ALD-0001",
+      "customer": "Residência 001",
+      "referencePoint": "Polo de Inovação do IFCE",
+      "address": "R. Nogueira Acioli, 621 - Aldeota, Fortaleza - CE, 60110-140",
+      "latitude": -3.7288989,
+      "longitude": -38.5164303,
+      "meterNumber": "MED-10001",
+      "previousReading": 12874,
+      "status": "pending"
+    },
+    {
+      "id": 102,
+      "order": 2,
+      "installationCode": "LEIT-ALD-0002",
+      "customer": "Residência 002",
+      "referencePoint": "Praça Luíza Távora / CeArt",
+      "address": "Av. Santos Dumont, 1589 - Aldeota, Fortaleza - CE, 60160-150",
+      "latitude": -3.731697,
+      "longitude": -38.5098454,
+      "meterNumber": "MED-10002",
+      "previousReading": 9862,
+      "status": "pending"
+    },
+    {
+      "id": 103,
+      "order": 3,
+      "installationCode": "LEIT-ALD-0003",
+      "customer": "Residência 003",
+      "referencePoint": "Salpetrier Café",
+      "address": "Av. Santos Dumont, 1650 - Aldeota, Fortaleza - CE, 60115-191",
+      "latitude": -3.7332028,
+      "longitude": -38.5091965,
+      "meterNumber": "MED-10003",
+      "previousReading": 15340,
+      "status": "pending"
+    },
+    {
+      "id": 104,
+      "order": 4,
+      "installationCode": "LEIT-ALD-0004",
+      "customer": "Residência 004",
+      "referencePoint": "BlueFit Aldeota",
+      "address": "Av. Barão de Studart, 1685 - Aldeota, Fortaleza - CE, 60120-001",
+      "latitude": -3.7390075,
+      "longitude": -38.5077433,
+      "meterNumber": "MED-10004",
+      "previousReading": 7421,
+      "status": "pending"
+    },
+    {
+      "id": 105,
+      "order": 5,
+      "installationCode": "LEIT-ALD-0005",
+      "customer": "Residência 005",
+      "referencePoint": "Shopping Aldeota",
+      "address": "Av. Dom Luís, 500 - Aldeota, Fortaleza - CE, 60160-230",
+      "latitude": -3.7340637,
+      "longitude": -38.4969648,
+      "meterNumber": "MED-10005",
+      "previousReading": 20118,
+      "status": "pending"
+    },
+    {
+      "id": 106,
+      "order": 6,
+      "installationCode": "LEIT-ALD-0006",
+      "customer": "Residência 006",
+      "referencePoint": "The Coffee - Aldeota",
+      "address": "R. Barbosa de Freitas, 1040 - Aldeota, Fortaleza - CE, 60170-021",
+      "latitude": -3.7351941,
+      "longitude": -38.4970612,
+      "meterNumber": "MED-10006",
+      "previousReading": 11309,
+      "status": "pending"
+    },
+    {
+      "id": 107,
+      "order": 7,
+      "installationCode": "LEIT-ALD-0007",
+      "customer": "Residência 007",
+      "referencePoint": "Shopping Del Paseo",
+      "address": "Av. Santos Dumont, 3131 - Aldeota, Fortaleza - CE, 60150-165",
+      "latitude": -3.736223,
+      "longitude": -38.49676,
+      "meterNumber": "MED-10007",
+      "previousReading": 16755,
+      "status": "pending"
+    }
+  ]
+}
