@@ -1,4 +1,4 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import type { RoutePoint } from '../../domain/entities/RoutePoint';
 import { BaseCard, SectionLabel, StatusBadge } from '@/shared/presentation/components';
@@ -6,6 +6,7 @@ import type { StatusTone } from '@/shared/presentation/theme';
 import { tokens } from '@/shared/presentation/theme';
 
 interface RoutePointCardProps {
+  onPress: () => void;
   point: RoutePoint;
 }
 
@@ -24,32 +25,40 @@ function getStatusTone(status: string): StatusTone {
   }
 }
 
-export function RoutePointCard({ point }: RoutePointCardProps) {
+export function RoutePointCard({ onPress, point }: RoutePointCardProps) {
   return (
-    <BaseCard style={styles.card}>
-      <View style={styles.header}>
-        <View style={styles.orderBlock}>
-          <SectionLabel style={styles.orderLabel}>Order</SectionLabel>
-          <Text style={styles.orderValue}>{point.order}</Text>
+    <Pressable
+      accessibilityHint="Opens the locally saved point details"
+      accessibilityLabel={`Open installation ${point.installationCode}`}
+      accessibilityRole="button"
+      onPress={onPress}
+      style={({ pressed }) => pressed && styles.pressed}
+    >
+      <BaseCard style={styles.card}>
+        <View style={styles.header}>
+          <View style={styles.orderBlock}>
+            <SectionLabel style={styles.orderLabel}>Order</SectionLabel>
+            <Text style={styles.orderValue}>{point.order}</Text>
+          </View>
+
+          <View style={styles.headerContent}>
+            <SectionLabel>Installation</SectionLabel>
+            <Text style={styles.installation}>{point.installationCode}</Text>
+            <StatusBadge label={point.status} style={styles.status} tone={getStatusTone(point.status)} />
+          </View>
         </View>
 
-        <View style={styles.headerContent}>
-          <SectionLabel>Installation</SectionLabel>
-          <Text style={styles.installation}>{point.installationCode}</Text>
-          <StatusBadge label={point.status} style={styles.status} tone={getStatusTone(point.status)} />
+        <View style={styles.detail}>
+          <SectionLabel>Address</SectionLabel>
+          <Text style={styles.value}>{point.address}</Text>
         </View>
-      </View>
 
-      <View style={styles.detail}>
-        <SectionLabel>Address</SectionLabel>
-        <Text style={styles.value}>{point.address}</Text>
-      </View>
-
-      <View style={styles.detail}>
-        <SectionLabel>Reference</SectionLabel>
-        <Text style={styles.value}>{point.referencePoint}</Text>
-      </View>
-    </BaseCard>
+        <View style={styles.detail}>
+          <SectionLabel>Reference</SectionLabel>
+          <Text style={styles.value}>{point.referencePoint}</Text>
+        </View>
+      </BaseCard>
+    </Pressable>
   );
 }
 
@@ -90,6 +99,9 @@ const styles = StyleSheet.create({
   orderValue: {
     ...tokens.typography.title,
     color: tokens.colors.textInverse,
+  },
+  pressed: {
+    opacity: 0.72,
   },
   status: {
     marginTop: tokens.spacing.xs,

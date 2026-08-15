@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSQLiteContext } from 'expo-sqlite';
+import { type RelativePathString, useRouter } from 'expo-router';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -15,6 +16,7 @@ import {
 
 export function RouteHomeScreen() {
   const database = useSQLiteContext();
+  const router = useRouter();
   const routeRepository = useMemo(() => new SQLiteRouteRepository(database), [database]);
   const [state, setState] = useState<RouteHomeState>({ kind: 'loading' });
 
@@ -83,7 +85,13 @@ export function RouteHomeScreen() {
 
         <View style={styles.list}>
           {route.points.map((point) => (
-            <RoutePointCard key={point.id} point={point} />
+            <RoutePointCard
+              key={point.id}
+              onPress={() => {
+                router.push(`./points/${point.id}` as RelativePathString);
+              }}
+              point={point}
+            />
           ))}
         </View>
       </ScrollView>
