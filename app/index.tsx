@@ -1,5 +1,5 @@
-import { AppShellScreen } from '@/features/app-shell/presentation/screens/AppShellScreen';
+import { RouteHomeScreen } from '@/features/routes/presentation/screens/RouteHomeScreen';
 
 export default function IndexRoute() {
-  return <AppShellScreen />;
+  return <RouteHomeScreen />;
 }
