@@ -1,6 +1,7 @@
 import React from 'react';
 import { SQLiteProvider } from 'expo-sqlite';
 
+import { seedOfficialRoute } from '../../../features/routes/data/seed/seedOfficialRoute';
 import { runMigrations } from './migrations';
 
 export const DATABASE_NAME = 'leit_field_ops.db';
@@ -16,7 +17,14 @@ interface DatabaseProviderProps {
  */
 export function DatabaseProvider({ children }: DatabaseProviderProps) {
   return (
-    <SQLiteProvider databaseName={DATABASE_NAME} onInit={runMigrations} useSuspense={false}>
+    <SQLiteProvider
+      databaseName={DATABASE_NAME}
+      onInit={async (db) => {
+        await runMigrations(db);
+        await seedOfficialRoute(db);
+      }}
+      useSuspense={false}
+    >
       {children}
     </SQLiteProvider>
   );
