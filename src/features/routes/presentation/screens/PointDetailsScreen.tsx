@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSQLiteContext } from 'expo-sqlite';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { SQLiteRouteRepository } from '../../data/repositories/SQLiteRouteRepository';
 import { BaseCard, PrimaryButton, SectionLabel, StatusBadge } from '@/shared/presentation/components';
 import type { StatusTone } from '@/shared/presentation/theme';
 import { tokens } from '@/shared/presentation/theme';
+import { validateCurrentReading } from '@/features/visits/domain/validation/validateCurrentReading';
 import {
   loadPointDetails,
   type PointDetailsState,
@@ -15,7 +16,7 @@ import {
 
 interface PointDetailsScreenProps {
   onBack: () => void;
-  onStartVisit: () => void;
+  onStartVisit: (currentReading: number) => void;
   pointId: PointIdParameter;
 }
 
@@ -38,6 +39,8 @@ export function PointDetailsScreen({ onBack, onStartVisit, pointId }: PointDetai
   const database = useSQLiteContext();
   const routeRepository = useMemo(() => new SQLiteRouteRepository(database), [database]);
   const [state, setState] = useState<PointDetailsState>({ kind: 'loading' });
+  const [currentReading, setCurrentReading] = useState('');
+  const [readingError, setReadingError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setState({ kind: 'loading' });
@@ -47,6 +50,28 @@ export function PointDetailsScreen({ onBack, onStartVisit, pointId }: PointDetai
   useEffect(() => {
     void load();
   }, [load]);
+
+  const handleCurrentReadingChange = (value: string) => {
+    setCurrentReading(value);
+    setReadingError(null);
+  };
+
+  const handleStartVisit = () => {
+    const result = validateCurrentReading(currentReading);
+
+    if (result.kind === 'required') {
+      setReadingError('Enter the new reading to continue.');
+      return;
+    }
+
+    if (result.kind === 'invalid') {
+      setReadingError('Enter a valid numeric reading.');
+      return;
+    }
+
+    setReadingError(null);
+    onStartVisit(result.value);
+  };
 
   if (state.kind === 'loading') {
     return <FeedbackScreen label="Loading local point…" onBack={onBack} />;
@@ -120,11 +145,26 @@ export function PointDetailsScreen({ onBack, onStartVisit, pointId }: PointDetai
         </BaseCard>
 
         <View style={styles.actionArea}>
-          <SectionLabel>Visit</SectionLabel>
+          <SectionLabel>New reading</SectionLabel>
           <Text style={styles.actionDescription}>
-            Use this point context to register or continue its field visit.
+            Enter the current meter reading to continue the visit.
           </Text>
-          <PrimaryButton label="Register visit" onPress={onStartVisit} />
+          <TextInput
+            accessibilityHint={readingError ?? 'Enter a numeric meter reading.'}
+            accessibilityLabel="New reading"
+            keyboardType="numeric"
+            onChangeText={handleCurrentReadingChange}
+            placeholder="Enter current reading"
+            placeholderTextColor={tokens.colors.textMuted}
+            style={[styles.readingInput, readingError && styles.readingInputInvalid]}
+            value={currentReading}
+          />
+          {readingError ? (
+            <Text accessibilityLiveRegion="polite" style={styles.readingError}>
+              {readingError}
+            </Text>
+          ) : null}
+          <PrimaryButton label="Continue visit" onPress={handleStartVisit} />
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -257,6 +297,24 @@ const styles = StyleSheet.create({
   },
   pressed: {
     opacity: 0.72,
+  },
+  readingError: {
+    ...tokens.typography.body,
+    color: tokens.colors.status.danger.text,
+  },
+  readingInput: {
+    ...tokens.typography.body,
+    backgroundColor: tokens.colors.surface,
+    borderColor: tokens.colors.border,
+    borderRadius: tokens.borders.radius.subtle,
+    borderWidth: tokens.borders.width.strong,
+    color: tokens.colors.text,
+    minHeight: 52,
+    paddingHorizontal: tokens.spacing.md,
+    paddingVertical: tokens.spacing.sm,
+  },
+  readingInputInvalid: {
+    borderColor: tokens.colors.status.danger.border,
   },
   retry: {
     marginTop: tokens.spacing.md,
