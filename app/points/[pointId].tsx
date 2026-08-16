@@ -1,4 +1,3 @@
-import { Alert } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 
 import { PointDetailsScreen } from '@/features/routes/presentation/screens/PointDetailsScreen';
@@ -11,10 +10,14 @@ export default function PointDetailsRoute() {
     <PointDetailsScreen
       onBack={() => router.back()}
       onStartVisit={(currentReading) => {
-        Alert.alert(
-          'Reading accepted',
-          `Current reading: ${currentReading}. Evidence capture and visit completion continue in their dedicated tasks.`,
-        );
+        if (typeof pointId !== 'string') {
+          return;
+        }
+
+        router.push({
+          pathname: '/visits/evidence',
+          params: { currentReading: String(currentReading), pointId },
+        });
       }}
       pointId={pointId}
     />
