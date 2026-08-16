@@ -35,6 +35,7 @@ import {
   resetEvidenceState,
   resetLocationState,
 } from '../view-models/VisitEvidenceViewModel';
+import { ConnectivityBanner } from '@/features/app-shell/presentation/components/ConnectivityBanner';
 import { BaseCard, PrimaryButton, SectionLabel, StatusBadge } from '@/shared/presentation/components';
 import { tokens } from '@/shared/presentation/theme';
 
@@ -151,6 +152,8 @@ export function VisitEvidenceScreen({
           <SectionLabel style={styles.inverseLabel}>Visit evidence</SectionLabel>
           <Text style={styles.title}>Capture meter photo</Text>
         </View>
+
+        <ConnectivityBanner />
 
         <BaseCard style={styles.contextCard}>
           <ContextRow label="Point" value={String(context.pointId)} />

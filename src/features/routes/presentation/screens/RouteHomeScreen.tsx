@@ -5,6 +5,7 @@ import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { SQLiteRouteRepository } from '../../data/repositories/SQLiteRouteRepository';
+import { ConnectivityBanner } from '@/features/app-shell/presentation/components/ConnectivityBanner';
 import { SQLiteVisitRepository } from '@/features/visits/data/repositories/SQLiteVisitRepository';
 import type { Visit, VisitSyncStatus } from '@/features/visits/domain/entities/Visit';
 import { SimulatedVisitSyncGateway } from '@/features/visits/infrastructure/sync/SimulatedVisitSyncGateway';
@@ -112,6 +113,8 @@ export function RouteHomeScreen() {
           <Text style={styles.routeName}>{route.name}</Text>
           <Text style={styles.routeId}>{route.id}</Text>
         </View>
+
+        <ConnectivityBanner />
 
         <BaseCard style={styles.summary}>
           <View>

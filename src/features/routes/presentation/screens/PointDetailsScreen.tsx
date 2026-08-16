@@ -5,6 +5,7 @@ import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { SQLiteRouteRepository } from '../../data/repositories/SQLiteRouteRepository';
+import { ConnectivityBanner } from '@/features/app-shell/presentation/components/ConnectivityBanner';
 import { SQLiteVisitRepository } from '@/features/visits/data/repositories/SQLiteVisitRepository';
 import { deriveVisitDisplayStatus } from '@/features/visits/domain/use-cases/DeriveVisitDisplayStatus';
 import { BaseCard, PrimaryButton, SectionLabel, StatusBadge } from '@/shared/presentation/components';
@@ -123,6 +124,8 @@ export function PointDetailsScreen({ onBack, onStartVisit, pointId }: PointDetai
             <StatusBadge label={displayStatus.label} tone={displayStatus.tone} />
           </View>
         </View>
+
+        <ConnectivityBanner />
 
         <BaseCard style={styles.contextCard}>
           <DetailRow label="Installation" value={point.installationCode} />
