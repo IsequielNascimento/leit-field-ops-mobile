@@ -6,6 +6,17 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { SQLiteRouteRepository } from '../../data/repositories/SQLiteRouteRepository';
 import { SQLiteVisitRepository } from '@/features/visits/data/repositories/SQLiteVisitRepository';
+import type { Visit, VisitSyncStatus } from '@/features/visits/domain/entities/Visit';
+import { SimulatedVisitSyncGateway } from '@/features/visits/infrastructure/sync/SimulatedVisitSyncGateway';
+import { VisitSyncPanel } from '@/features/visits/presentation/components/VisitSyncPanel';
+import {
+  applyVisitSyncTransition,
+  EMPTY_VISIT_SYNC_SUMMARY,
+  loadVisitSyncSummary,
+  runManualSync,
+  type VisitSyncState,
+  type VisitSyncSummary,
+} from '@/features/visits/presentation/view-models/VisitSyncViewModel';
 import { BaseCard, PrimaryButton, SectionLabel } from '@/shared/presentation/components';
 import { tokens } from '@/shared/presentation/theme';
 import { RoutePointCard } from '../components/RoutePointCard';
@@ -20,12 +31,43 @@ export function RouteHomeScreen() {
   const router = useRouter();
   const routeRepository = useMemo(() => new SQLiteRouteRepository(database), [database]);
   const visitRepository = useMemo(() => new SQLiteVisitRepository(database), [database]);
+  const syncGateway = useMemo(() => new SimulatedVisitSyncGateway(), []);
   const [state, setState] = useState<RouteHomeState>({ kind: 'loading' });
+  const [syncState, setSyncState] = useState<VisitSyncState>({ kind: 'idle' });
+  const [syncSummary, setSyncSummary] = useState<VisitSyncSummary>(EMPTY_VISIT_SYNC_SUMMARY);
 
   const load = useCallback(async () => {
     setState({ kind: 'loading' });
     setState(await loadRouteHome(routeRepository, visitRepository));
+    setSyncSummary(await loadVisitSyncSummary(visitRepository));
   }, [routeRepository, visitRepository]);
+
+  const applyVisitChange = useCallback((visit: Visit, previousStatus: VisitSyncStatus) => {
+    setSyncSummary((current) => applyVisitSyncTransition(current, previousStatus, visit.syncStatus));
+    setState((current) => {
+      if (current.kind !== 'loaded') {
+        return current;
+      }
+
+      const latest = current.latestVisits.get(visit.pointId);
+
+      if (latest && latest.id !== visit.id) {
+        return current;
+      }
+
+      const latestVisits = new Map(current.latestVisits);
+      latestVisits.set(visit.pointId, visit);
+
+      return { ...current, latestVisits };
+    });
+  }, []);
+
+  const synchronize = useCallback(async () => {
+    setSyncState({ kind: 'syncing' });
+    const result = await runManualSync(visitRepository, syncGateway, applyVisitChange);
+    setSyncState(result);
+    setSyncSummary(await loadVisitSyncSummary(visitRepository));
+  }, [applyVisitChange, syncGateway, visitRepository]);
 
   useFocusEffect(
     useCallback(() => {
@@ -81,6 +123,14 @@ export function RouteHomeScreen() {
             <Text style={styles.summaryMetadataText}>{route.city} · {route.state}</Text>
           </View>
         </BaseCard>
+
+        <View style={styles.syncPanel}>
+          <VisitSyncPanel
+            onSync={() => void synchronize()}
+            state={syncState}
+            summary={syncSummary}
+          />
+        </View>
 
         <View style={styles.listHeader}>
           <SectionLabel>Service points</SectionLabel>
@@ -204,5 +254,8 @@ const styles = StyleSheet.create({
   summaryValue: {
     ...tokens.typography.title,
     color: tokens.colors.text,
+  },
+  syncPanel: {
+    paddingHorizontal: tokens.spacing.lg,
   },
 });
