@@ -6,11 +6,20 @@ import type {
   CameraPermissionOutcome,
   DurablePhotoStorage,
 } from '../../domain/services/CameraEvidenceService';
+import type {
+  CurrentPositionProvider,
+  LocationFixOutcome,
+  LocationPermissionGateway,
+  LocationPermissionOutcome,
+  LocationReading,
+} from '../../domain/services/LocationEvidenceService';
 import {
   handleCameraOutcome,
   parseVisitEvidenceContext,
   requestCamera,
+  requestVisitLocation,
   resetEvidenceState,
+  resetLocationState,
 } from './VisitEvidenceViewModel';
 
 function permissionGateway(result: CameraPermissionOutcome): CameraPermissionGateway {
@@ -68,4 +77,66 @@ test('maps capture, cancellation, and failure outcomes to visible states', async
 
 test('retry resets camera evidence feedback', () => {
   assert.deepEqual(resetEvidenceState(), { kind: 'ready' });
+});
+
+const locationReading: LocationReading = {
+  capturedAt: '2026-08-16T01:20:30.000Z',
+  latitude: -3.7327,
+  longitude: -38.5267,
+};
+
+function locationPermissionGateway(result: LocationPermissionOutcome): LocationPermissionGateway {
+  return { async requestPermission() { return result; } };
+}
+
+function positionProvider(result: LocationFixOutcome): CurrentPositionProvider {
+  return { async readCurrentPosition() { return result; } };
+}
+
+test('maps a granted location fix to a captured presentation state', async () => {
+  assert.deepEqual(
+    await requestVisitLocation(
+      locationPermissionGateway({ kind: 'granted' }),
+      positionProvider({ kind: 'fixed', reading: locationReading }),
+    ),
+    { kind: 'captured', reading: locationReading },
+  );
+});
+
+test('maps location denial and unavailability to visible states without throwing', async () => {
+  assert.deepEqual(
+    await requestVisitLocation(
+      locationPermissionGateway({ kind: 'denied', canAskAgain: true }),
+      positionProvider({ kind: 'fixed', reading: locationReading }),
+    ),
+    { kind: 'denied', canAskAgain: true },
+  );
+
+  assert.deepEqual(
+    await requestVisitLocation(
+      locationPermissionGateway({ kind: 'denied', canAskAgain: false }),
+      positionProvider({ kind: 'fixed', reading: locationReading }),
+    ),
+    { kind: 'denied', canAskAgain: false },
+  );
+
+  assert.deepEqual(
+    await requestVisitLocation(
+      locationPermissionGateway({ kind: 'granted' }),
+      positionProvider({ kind: 'unavailable', message: 'Location services are turned off on this device.' }),
+    ),
+    { kind: 'error', message: 'Location services are turned off on this device.' },
+  );
+
+  assert.deepEqual(
+    await requestVisitLocation(
+      locationPermissionGateway({ kind: 'granted' }),
+      positionProvider({ kind: 'failed', message: 'The device could not provide the current location.' }),
+    ),
+    { kind: 'error', message: 'The device could not provide the current location.' },
+  );
+});
+
+test('retry resets location evidence feedback', () => {
+  assert.deepEqual(resetLocationState(), { kind: 'idle' });
 });

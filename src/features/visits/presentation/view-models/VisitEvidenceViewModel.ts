@@ -3,6 +3,12 @@ import type {
   CameraPermissionGateway,
   DurablePhotoStorage,
 } from '../../domain/services/CameraEvidenceService';
+import type {
+  CurrentPositionProvider,
+  LocationPermissionGateway,
+  LocationReading,
+} from '../../domain/services/LocationEvidenceService';
+import { captureVisitLocation } from '../../domain/use-cases/CaptureVisitLocation';
 import { prepareVisitPhoto } from '../../domain/use-cases/PrepareVisitPhoto';
 import { validateCurrentReading } from '../../domain/validation/validateCurrentReading';
 
@@ -19,6 +25,13 @@ export type VisitEvidenceState =
   | { kind: 'camera' }
   | { kind: 'saving' }
   | { kind: 'captured'; photoUri: string }
+  | { kind: 'denied'; canAskAgain: boolean }
+  | { kind: 'error'; message: string };
+
+export type VisitLocationState =
+  | { kind: 'idle' }
+  | { kind: 'requesting' }
+  | { kind: 'captured'; reading: LocationReading }
   | { kind: 'denied'; canAskAgain: boolean }
   | { kind: 'error'; message: string };
 
@@ -79,4 +92,25 @@ export async function handleCameraOutcome(
 
 export function resetEvidenceState(): VisitEvidenceState {
   return { kind: 'ready' };
+}
+
+export async function requestVisitLocation(
+  permissions: LocationPermissionGateway,
+  positions: CurrentPositionProvider,
+): Promise<VisitLocationState> {
+  const result = await captureVisitLocation(permissions, positions);
+
+  switch (result.kind) {
+    case 'captured':
+      return { kind: 'captured', reading: result.reading };
+    case 'denied':
+      return { kind: 'denied', canAskAgain: result.canAskAgain };
+    case 'unavailable':
+    case 'failed':
+      return { kind: 'error', message: result.message };
+  }
+}
+
+export function resetLocationState(): VisitLocationState {
+  return { kind: 'idle' };
 }

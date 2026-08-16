@@ -15,12 +15,23 @@ import type {
   CameraPermissionGateway,
   DurablePhotoStorage,
 } from '../../domain/services/CameraEvidenceService';
+import type {
+  CurrentPositionProvider,
+  LocationPermissionGateway,
+  LocationReading,
+} from '../../domain/services/LocationEvidenceService';
 import { ExpoCameraPreview } from '../../infrastructure/camera/ExpoCameraPreview';
-import type { VisitEvidenceContext, VisitEvidenceState } from '../view-models/VisitEvidenceViewModel';
+import type {
+  VisitEvidenceContext,
+  VisitEvidenceState,
+  VisitLocationState,
+} from '../view-models/VisitEvidenceViewModel';
 import {
   handleCameraOutcome,
   requestCamera,
+  requestVisitLocation,
   resetEvidenceState,
+  resetLocationState,
 } from '../view-models/VisitEvidenceViewModel';
 import { BaseCard, PrimaryButton, SectionLabel, StatusBadge } from '@/shared/presentation/components';
 import { tokens } from '@/shared/presentation/theme';
@@ -28,17 +39,22 @@ import { tokens } from '@/shared/presentation/theme';
 interface VisitEvidenceScreenProps {
   cameraService: CameraPermissionGateway & DurablePhotoStorage;
   context: VisitEvidenceContext | null;
+  locationService: LocationPermissionGateway & CurrentPositionProvider;
   onBack: () => void;
+  onLocationReady?: (reading: LocationReading) => void;
   onPhotoReady?: (photoUri: string) => void;
 }
 
 export function VisitEvidenceScreen({
   cameraService,
   context,
+  locationService,
   onBack,
+  onLocationReady,
   onPhotoReady,
 }: VisitEvidenceScreenProps) {
   const [state, setState] = useState<VisitEvidenceState>({ kind: 'ready' });
+  const [locationState, setLocationState] = useState<VisitLocationState>({ kind: 'idle' });
 
   if (!context) {
     return (
@@ -65,6 +81,17 @@ export function VisitEvidenceScreen({
 
     if (nextState.kind === 'captured') {
       onPhotoReady?.(nextState.photoUri);
+    }
+  };
+
+  const captureLocation = async () => {
+    setLocationState({ kind: 'requesting' });
+
+    const nextState = await requestVisitLocation(locationService, locationService);
+    setLocationState(nextState);
+
+    if (nextState.kind === 'captured') {
+      onLocationReady?.(nextState.reading);
     }
   };
 
@@ -177,9 +204,84 @@ export function VisitEvidenceScreen({
             />
           ) : null}
         </View>
+
+        <View style={styles.evidenceArea}>
+          <SectionLabel>Location evidence</SectionLabel>
+          <Text style={styles.description}>
+            Record where this visit was carried out. The coordinates come from the device and stay
+            stored on it.
+          </Text>
+
+          {locationState.kind === 'captured' ? (
+            <BaseCard accessibilityLabel="Location evidence captured" style={styles.successCard}>
+              <View style={styles.statusRow}>
+                <StatusBadge label="Location recorded" tone="success" />
+                <Text accessibilityLiveRegion="polite" style={styles.successText}>
+                  Coordinates reported by this device.
+                </Text>
+              </View>
+              <ContextRow label="Latitude" value={formatCoordinate(locationState.reading.latitude)} />
+              <ContextRow label="Longitude" value={formatCoordinate(locationState.reading.longitude)} />
+              <ContextRow label="Captured at" value={formatCaptureTime(locationState.reading.capturedAt)} />
+            </BaseCard>
+          ) : null}
+
+          {locationState.kind === 'denied' ? (
+            <BaseCard accessibilityLiveRegion="assertive" style={styles.errorCard}>
+              <StatusBadge label="Location blocked" tone="danger" />
+              <Text style={styles.errorText}>
+                Location permission is required to record where the visit happened.
+              </Text>
+              {locationState.canAskAgain ? (
+                <PrimaryButton
+                  label="Request location permission"
+                  onPress={() => void captureLocation()}
+                />
+              ) : (
+                <PrimaryButton label="Open app settings" onPress={() => void Linking.openSettings()} />
+              )}
+            </BaseCard>
+          ) : null}
+
+          {locationState.kind === 'error' ? (
+            <BaseCard accessibilityLiveRegion="assertive" style={styles.errorCard}>
+              <StatusBadge label="Location failed" tone="danger" />
+              <Text style={styles.errorText}>{locationState.message}</Text>
+              <PrimaryButton
+                label="Try location again"
+                onPress={() => {
+                  setLocationState(resetLocationState());
+                  void captureLocation();
+                }}
+              />
+            </BaseCard>
+          ) : null}
+
+          {locationState.kind === 'idle' || locationState.kind === 'requesting' ? (
+            <PrimaryButton
+              accessibilityState={{ busy: locationState.kind === 'requesting' }}
+              disabled={locationState.kind === 'requesting'}
+              label={
+                locationState.kind === 'requesting'
+                  ? 'Reading current location…'
+                  : 'Record current location'
+              }
+              onPress={() => void captureLocation()}
+            />
+          ) : null}
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
+}
+
+function formatCoordinate(value: number): string {
+  return value.toFixed(6);
+}
+
+function formatCaptureTime(capturedAt: string): string {
+  const captureTime = new Date(capturedAt);
+  return Number.isFinite(captureTime.getTime()) ? captureTime.toLocaleString() : capturedAt;
 }
 
 interface ContextRowProps {
