@@ -10,10 +10,10 @@ export default function PointDetailsRoute() {
   return (
     <PointDetailsScreen
       onBack={() => router.back()}
-      onStartVisit={() => {
+      onStartVisit={(currentReading) => {
         Alert.alert(
-          'Visit ready',
-          'This point is selected. Continue with reading registration when the visit flow is available.',
+          'Reading accepted',
+          `Current reading: ${currentReading}. Evidence capture and visit completion continue in their dedicated tasks.`,
         );
       }}
       pointId={pointId}
