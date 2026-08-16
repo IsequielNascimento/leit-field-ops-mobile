@@ -49,6 +49,10 @@ test('maps every persisted synchronization status to distinct text and tone', ()
     label: 'Visited · synced',
     tone: 'success',
   });
+  assert.deepEqual(deriveVisitDisplayStatus('pending', { ...visit, syncStatus: 'error' }), {
+    label: 'Visited · sync failed',
+    tone: 'danger',
+  });
 });
 
 test('selects the most recently captured visit for a point', () => {

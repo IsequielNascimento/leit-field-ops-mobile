@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSQLiteContext } from 'expo-sqlite';
 import { type RelativePathString, useFocusEffect, useRouter } from 'expo-router';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -8,16 +8,8 @@ import { SQLiteRouteRepository } from '../../data/repositories/SQLiteRouteReposi
 import { ConnectivityBanner } from '@/features/app-shell/presentation/components/ConnectivityBanner';
 import { SQLiteVisitRepository } from '@/features/visits/data/repositories/SQLiteVisitRepository';
 import type { Visit, VisitSyncStatus } from '@/features/visits/domain/entities/Visit';
-import { SimulatedVisitSyncGateway } from '@/features/visits/infrastructure/sync/SimulatedVisitSyncGateway';
 import { VisitSyncPanel } from '@/features/visits/presentation/components/VisitSyncPanel';
-import {
-  applyVisitSyncTransition,
-  EMPTY_VISIT_SYNC_SUMMARY,
-  loadVisitSyncSummary,
-  runManualSync,
-  type VisitSyncState,
-  type VisitSyncSummary,
-} from '@/features/visits/presentation/view-models/VisitSyncViewModel';
+import { useVisitSync } from '@/features/visits/presentation/VisitSyncProvider';
 import { BaseCard, PrimaryButton, SectionLabel } from '@/shared/presentation/components';
 import { tokens } from '@/shared/presentation/theme';
 import { RoutePointCard } from '../components/RoutePointCard';
@@ -32,19 +24,18 @@ export function RouteHomeScreen() {
   const router = useRouter();
   const routeRepository = useMemo(() => new SQLiteRouteRepository(database), [database]);
   const visitRepository = useMemo(() => new SQLiteVisitRepository(database), [database]);
-  const syncGateway = useMemo(() => new SimulatedVisitSyncGateway(), []);
+  const visitSync = useVisitSync();
   const [state, setState] = useState<RouteHomeState>({ kind: 'loading' });
-  const [syncState, setSyncState] = useState<VisitSyncState>({ kind: 'idle' });
-  const [syncSummary, setSyncSummary] = useState<VisitSyncSummary>(EMPTY_VISIT_SYNC_SUMMARY);
+
+  const { refresh: refreshSyncSummary, subscribeToVisitChanges } = visitSync;
 
   const load = useCallback(async () => {
     setState({ kind: 'loading' });
     setState(await loadRouteHome(routeRepository, visitRepository));
-    setSyncSummary(await loadVisitSyncSummary(visitRepository));
-  }, [routeRepository, visitRepository]);
+    await refreshSyncSummary();
+  }, [refreshSyncSummary, routeRepository, visitRepository]);
 
-  const applyVisitChange = useCallback((visit: Visit, previousStatus: VisitSyncStatus) => {
-    setSyncSummary((current) => applyVisitSyncTransition(current, previousStatus, visit.syncStatus));
+  const applyVisitChange = useCallback((visit: Visit, _previousStatus: VisitSyncStatus) => {
     setState((current) => {
       if (current.kind !== 'loaded') {
         return current;
@@ -63,12 +54,7 @@ export function RouteHomeScreen() {
     });
   }, []);
 
-  const synchronize = useCallback(async () => {
-    setSyncState({ kind: 'syncing' });
-    const result = await runManualSync(visitRepository, syncGateway, applyVisitChange);
-    setSyncState(result);
-    setSyncSummary(await loadVisitSyncSummary(visitRepository));
-  }, [applyVisitChange, syncGateway, visitRepository]);
+  useEffect(() => subscribeToVisitChanges(applyVisitChange), [applyVisitChange, subscribeToVisitChanges]);
 
   useFocusEffect(
     useCallback(() => {
@@ -129,9 +115,9 @@ export function RouteHomeScreen() {
 
         <View style={styles.syncPanel}>
           <VisitSyncPanel
-            onSync={() => void synchronize()}
-            state={syncState}
-            summary={syncSummary}
+            onSync={visitSync.sync}
+            state={visitSync.state}
+            summary={visitSync.summary}
           />
         </View>
 

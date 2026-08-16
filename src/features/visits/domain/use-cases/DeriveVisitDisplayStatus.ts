@@ -11,6 +11,7 @@ const SYNC_STATUS_LABELS: Record<VisitSyncStatus, string> = {
   pending: 'Visited · pending sync',
   syncing: 'Visited · syncing',
   synced: 'Visited · synced',
+  error: 'Visited · sync failed',
 };
 
 function toneForStatus(status: string): VisitDisplayTone {
