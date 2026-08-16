@@ -3,6 +3,8 @@ import test from 'node:test';
 
 import type { RoutePoint } from '../../domain/entities/RoutePoint';
 import type { RouteRepository } from '../../domain/repositories/RouteRepository';
+import type { Visit } from '@/features/visits/domain/entities/Visit';
+import type { VisitRepository } from '@/features/visits/domain/repositories/VisitRepository';
 import { loadPointDetails, parsePointId } from './PointDetailsViewModel';
 
 const persistedPoint: RoutePoint = {
@@ -28,6 +30,18 @@ function createRepository(getPointById: RouteRepository['getPointById']): RouteR
   };
 }
 
+function createVisitRepository(
+  getVisitsByPointId: VisitRepository['getVisitsByPointId'] = async () => [],
+): VisitRepository {
+  return {
+    saveVisit: async () => undefined,
+    getVisitById: async () => null,
+    getVisitsByPointId,
+    getVisitsBySyncStatus: async () => [],
+    updateSyncStatus: async () => undefined,
+  };
+}
+
 test('parses only one positive safe integer point identifier', () => {
   assert.equal(parsePointId('4'), 4);
   assert.equal(parsePointId('0'), null);
@@ -45,11 +59,12 @@ test('loads the exact persisted point by identifier', async () => {
       requestedIds.push(pointId);
       return persistedPoint;
     }),
+    createVisitRepository(),
     '4',
   );
 
   assert.deepEqual(requestedIds, [4]);
-  assert.deepEqual(state, { kind: 'loaded', point: persistedPoint });
+  assert.deepEqual(state, { kind: 'loaded', point: persistedPoint, latestVisit: null });
 });
 
 test('rejects malformed identifiers without querying the repository', async () => {
@@ -59,6 +74,7 @@ test('rejects malformed identifiers without querying the repository', async () =
       queryCount += 1;
       return persistedPoint;
     }),
+    createVisitRepository(),
     'not-a-point',
   );
 
@@ -67,7 +83,11 @@ test('rejects malformed identifiers without querying the repository', async () =
 });
 
 test('returns empty when the persisted point does not exist', async () => {
-  const state = await loadPointDetails(createRepository(async () => null), '99');
+  const state = await loadPointDetails(
+    createRepository(async () => null),
+    createVisitRepository(),
+    '99',
+  );
   assert.deepEqual(state, { kind: 'empty' });
 });
 
@@ -76,8 +96,42 @@ test('returns error state when local persistence fails', async () => {
     createRepository(async () => {
       throw new Error('SQLite unavailable');
     }),
+    createVisitRepository(),
     '4',
   );
 
   assert.deepEqual(state, { kind: 'error', message: 'SQLite unavailable' });
+});
+
+test('loads the latest persisted visit for the point', async () => {
+  const older: Visit = {
+    id: 'older',
+    pointId: 4,
+    installationCode: 'LOCAL-INSTALLATION',
+    meterNumber: 'LOCAL-METER',
+    previousReading: 318,
+    currentReading: 340,
+    photoUri: 'file:///older.jpg',
+    latitude: -3.7,
+    longitude: -38.5,
+    capturedAt: '2026-08-15T08:00:00.000Z',
+    syncStatus: 'pending',
+  };
+  const newer: Visit = {
+    ...older,
+    id: 'newer',
+    currentReading: 341,
+    capturedAt: '2026-08-16T08:00:00.000Z',
+  };
+
+  const state = await loadPointDetails(
+    createRepository(async () => persistedPoint),
+    createVisitRepository(async () => [newer, older]),
+    '4',
+  );
+
+  assert.equal(state.kind, 'loaded');
+  if (state.kind === 'loaded') {
+    assert.equal(state.latestVisit?.id, 'newer');
+  }
 });
