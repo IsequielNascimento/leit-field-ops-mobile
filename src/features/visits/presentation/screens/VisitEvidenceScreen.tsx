@@ -15,6 +15,7 @@ import type {
   CameraPermissionGateway,
   DurablePhotoStorage,
 } from '../../domain/services/CameraEvidenceService';
+import type { VisitPhotoProcessor } from '../../domain/services/ImageProcessingService';
 import type {
   CurrentPositionProvider,
   LocationPermissionGateway,
@@ -47,6 +48,7 @@ interface VisitEvidenceScreenProps {
   onCompleteVisit: (photoUri: string, reading: LocationReading) => Promise<VisitCompletionState>;
   onLocationReady?: (reading: LocationReading) => void;
   onPhotoReady?: (photoUri: string) => void;
+  photoProcessor: VisitPhotoProcessor;
 }
 
 export function VisitEvidenceScreen({
@@ -57,6 +59,7 @@ export function VisitEvidenceScreen({
   onCompleteVisit,
   onLocationReady,
   onPhotoReady,
+  photoProcessor,
 }: VisitEvidenceScreenProps) {
   const [state, setState] = useState<VisitEvidenceState>({ kind: 'ready' });
   const [locationState, setLocationState] = useState<VisitLocationState>({ kind: 'idle' });
@@ -82,7 +85,7 @@ export function VisitEvidenceScreen({
       setState({ kind: 'saving' });
     }
 
-    const nextState = await handleCameraOutcome(cameraService, outcome);
+    const nextState = await handleCameraOutcome(photoProcessor, cameraService, outcome);
     setState(nextState);
 
     if (nextState.kind === 'captured') {

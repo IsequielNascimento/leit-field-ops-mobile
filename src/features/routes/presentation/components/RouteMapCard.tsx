@@ -4,11 +4,12 @@ import { Image, type LayoutChangeEvent, Pressable, StyleSheet, Text, View } from
 import type { RoutePoint } from '../../domain/entities/RoutePoint';
 import { BaseCard, SectionLabel } from '@/shared/presentation/components';
 import { tokens } from '@/shared/presentation/theme';
-import { buildRouteMapView, TILE_SIZE } from '../view-models/RouteMapViewModel';
+import { buildRouteMapView, buildRouteSegments, TILE_SIZE } from '../view-models/RouteMapViewModel';
 
 const MAP_HEIGHT = 220;
 const MARKER_SIZE = 30;
 const MAP_PADDING = 28;
+const LINE_THICKNESS = 3;
 
 interface RouteMapCardProps {
   onSelectPoint: (point: RoutePoint) => void;
@@ -40,6 +41,7 @@ function RouteMapCanvas({ onSelectPoint, points }: RouteMapCardProps) {
     setFailedTiles((current) => (current.includes(key) ? current : [...current, key]));
   }, []);
 
+  const segments = useMemo(() => (view.kind === 'ready' ? buildRouteSegments(view.markers) : []), [view]);
   const pointsById = useMemo(() => new Map(points.map((point) => [point.id, point])), [points]);
   const tilesUnavailable =
     view.kind === 'ready' &&
@@ -64,6 +66,24 @@ function RouteMapCanvas({ onSelectPoint, points }: RouteMapCardProps) {
                 onError={() => handleTileError(tile.key)}
                 source={{ uri: tile.url }}
                 style={[styles.tile, { left: tile.left, top: tile.top }]}
+              />
+            ))}
+
+            {segments.map((segment) => (
+              <View
+                accessibilityElementsHidden
+                importantForAccessibility="no-hide-descendants"
+                key={segment.key}
+                pointerEvents="none"
+                style={[
+                  styles.segment,
+                  {
+                    left: segment.centerX - segment.length / 2,
+                    top: segment.centerY - LINE_THICKNESS / 2,
+                    width: segment.length,
+                    transform: [{ rotate: `${segment.angleDeg}deg` }],
+                  },
+                ]}
               />
             ))}
 
@@ -184,6 +204,11 @@ const styles = StyleSheet.create({
     ...tokens.typography.body,
     color: tokens.colors.textMuted,
     textAlign: 'center',
+  },
+  segment: {
+    backgroundColor: tokens.colors.primary,
+    height: LINE_THICKNESS,
+    position: 'absolute',
   },
   surface: {
     backgroundColor: tokens.colors.status.neutral.background,

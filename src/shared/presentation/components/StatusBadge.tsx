@@ -1,7 +1,7 @@
 import type { StyleProp, TextStyle, ViewProps, ViewStyle } from 'react-native';
 import { StyleSheet, Text, View } from 'react-native';
 
-import { tokens } from '@/shared/presentation/theme';
+import { statusToneGlyph, tokens } from '@/shared/presentation/theme';
 import type { StatusTone } from '@/shared/presentation/theme';
 
 type StatusBadgeProps = Omit<ViewProps, 'children' | 'style'> & {
@@ -38,7 +38,7 @@ export function StatusBadge({
       ]}
     >
       <Text style={[styles.label, { color: toneTokens.text }, textStyle]}>
-        {label}
+        {statusToneGlyph(tone)} {label}
       </Text>
     </View>
   );

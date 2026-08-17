@@ -31,6 +31,7 @@ export function RoutePointCard({ latestVisit, onPress, point }: RoutePointCardPr
           </View>
 
           <View style={styles.headerContent}>
+            <Text style={styles.customer}>{point.customer}</Text>
             <SectionLabel>Installation</SectionLabel>
             <Text style={styles.installation}>{point.installationCode}</Text>
             <StatusBadge
@@ -58,6 +59,11 @@ export function RoutePointCard({ latestVisit, onPress, point }: RoutePointCardPr
 const styles = StyleSheet.create({
   card: {
     gap: tokens.spacing.md,
+  },
+  customer: {
+    ...tokens.typography.body,
+    color: tokens.colors.text,
+    fontWeight: '700',
   },
   detail: {
     gap: tokens.spacing.xs,

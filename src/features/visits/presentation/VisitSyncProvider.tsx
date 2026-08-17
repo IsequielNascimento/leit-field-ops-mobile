@@ -6,6 +6,7 @@ import { SQLiteVisitRepository } from '../data/repositories/SQLiteVisitRepositor
 import type { Visit, VisitSyncStatus } from '../domain/entities/Visit';
 import type { VisitSyncProgressListener } from '../domain/use-cases/SynchronizePendingVisits';
 import { VisitSyncRunner } from '../domain/use-cases/VisitSyncRunner';
+import { registerBackgroundVisitSync } from '../infrastructure/background/backgroundVisitSync';
 import { SimulatedVisitSyncGateway } from '../infrastructure/sync/SimulatedVisitSyncGateway';
 import {
   applyVisitSyncTransition,
@@ -51,6 +52,8 @@ export function VisitSyncProvider({ children }: VisitSyncProviderProps) {
     () =>
       new VisitSyncRunner(
         repository,
+        // MARK: the probe reads the ref only when a run starts, never while rendering
+        // eslint-disable-next-line react-hooks/refs
         new SimulatedVisitSyncGateway({
           canReachService: () => connectivityRef.current === 'online',
         }),
@@ -97,9 +100,16 @@ export function VisitSyncProvider({ children }: VisitSyncProviderProps) {
     await refresh();
   }, [handleVisitChanged, refresh, runner]);
 
+  // MARK: first read of the persisted queue; the count comes from SQLite, not from render state
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void refresh();
   }, [refresh]);
+
+  // MARK: opportunistic only — the app is fully correct if this never registers or never runs
+  useEffect(() => {
+    void registerBackgroundVisitSync();
+  }, []);
 
   useEffect(() => {
     const previous = connectivityRef.current;
