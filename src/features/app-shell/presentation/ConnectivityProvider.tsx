@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
+import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
 
 import type { ConnectivityService, ConnectivityStatus } from '../domain/ConnectivityService';
 import { NetInfoConnectivityService } from '@/infrastructure/connectivity/NetInfoConnectivityService';
@@ -18,16 +18,21 @@ interface ConnectivityProviderProps {
  * trigger extra renders.
  */
 export function ConnectivityProvider({ children, service }: ConnectivityProviderProps) {
-  const serviceRef = useRef<ConnectivityService>(service ?? new NetInfoConnectivityService());
-  const [status, setStatus] = useState<ConnectivityStatus>(() => serviceRef.current.getCurrentStatus());
+  const connectivityService = useMemo<ConnectivityService>(
+    () => service ?? new NetInfoConnectivityService(),
+    [service],
+  );
+  const [status, setStatus] = useState<ConnectivityStatus>(() =>
+    connectivityService.getCurrentStatus(),
+  );
 
   useEffect(() => {
-    const unsubscribe = serviceRef.current.subscribe((nextStatus) => {
+    const unsubscribe = connectivityService.subscribe((nextStatus) => {
       setStatus((current) => (current === nextStatus ? current : nextStatus));
     });
 
     return unsubscribe;
-  }, []);
+  }, [connectivityService]);
 
   return <ConnectivityContext.Provider value={status}>{children}</ConnectivityContext.Provider>;
 }

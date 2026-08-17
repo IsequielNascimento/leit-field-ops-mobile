@@ -51,6 +51,8 @@ export function VisitSyncProvider({ children }: VisitSyncProviderProps) {
     () =>
       new VisitSyncRunner(
         repository,
+        // MARK: the probe reads the ref only when a run starts, never while rendering
+        // eslint-disable-next-line react-hooks/refs
         new SimulatedVisitSyncGateway({
           canReachService: () => connectivityRef.current === 'online',
         }),
@@ -97,7 +99,9 @@ export function VisitSyncProvider({ children }: VisitSyncProviderProps) {
     await refresh();
   }, [handleVisitChanged, refresh, runner]);
 
+  // MARK: first read of the persisted queue; the count comes from SQLite, not from render state
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void refresh();
   }, [refresh]);
 
