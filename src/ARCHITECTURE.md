@@ -78,3 +78,14 @@ If compression throws or returns a blank URI, `prepareVisitPhoto` stores the unt
 capture instead of aborting. A processing failure costs image size, never the evidence or the
 visit-completion flow. Durable storage failing is the only case that still reports `failed`,
 because at that point there is no file that would survive the cache being cleared.
+
+## Status feedback
+
+Every state a field agent can act on — loading, error, offline, and the visit sync states
+`pending`, `syncing`, `synced` and `error` — is reported with a written label first. `StatusBadge`
+additionally prefixes a per-tone glyph from `shared/presentation/theme/statusGlyph.ts`, so a
+status is never carried by colour alone, which matters both for colour-blind readers and for a
+phone screen read in direct sunlight. Long-running work adds an `ActivityIndicator` with
+`accessibilityRole="progressbar"` next to its label, and the actions that start work
+(`Sync pending visits`, `Complete visit`, `Capture photo`) disable themselves while running so a
+second tap cannot start a duplicate run.
