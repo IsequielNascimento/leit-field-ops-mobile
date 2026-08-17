@@ -30,6 +30,16 @@ export interface RouteMapViewport {
   padding: number;
 }
 
+export interface RouteMapSegment {
+  key: string;
+  fromOrder: number;
+  toOrder: number;
+  centerX: number;
+  centerY: number;
+  length: number;
+  angleDeg: number;
+}
+
 export type RouteMapView =
   | { kind: 'unavailable'; reason: string }
   | {
@@ -166,4 +176,34 @@ export function buildRouteMapView(
   }
 
   return { kind: 'ready', zoom, tiles, markers, attribution: MAP_TILE_ATTRIBUTION };
+}
+
+/**
+ * Straight segments joining consecutive markers by their persisted `order`,
+ * one from point N to point N+1. This is a static visualization of the
+ * already-known sequence, not a computed or optimized route: no distance,
+ * ETA or path-finding is involved, and the order is never recomputed here.
+ */
+export function buildRouteSegments(markers: readonly RouteMapMarker[]): readonly RouteMapSegment[] {
+  const ordered = [...markers].sort((a, b) => a.order - b.order);
+  const segments: RouteMapSegment[] = [];
+
+  for (let index = 0; index < ordered.length - 1; index += 1) {
+    const from = ordered[index];
+    const to = ordered[index + 1];
+    const dx = to.x - from.x;
+    const dy = to.y - from.y;
+
+    segments.push({
+      key: `${from.pointId}-${to.pointId}`,
+      fromOrder: from.order,
+      toOrder: to.order,
+      centerX: (from.x + to.x) / 2,
+      centerY: (from.y + to.y) / 2,
+      length: Math.sqrt(dx * dx + dy * dy),
+      angleDeg: (Math.atan2(dy, dx) * 180) / Math.PI,
+    });
+  }
+
+  return segments;
 }
