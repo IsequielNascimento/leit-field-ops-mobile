@@ -9,6 +9,7 @@ import type {
   CameraPermissionOutcome,
   DurablePhotoStorage,
 } from '../../domain/services/CameraEvidenceService';
+import type { VisitPhotoProcessor } from '../../domain/services/ImageProcessingService';
 import type {
   CurrentPositionProvider,
   LocationFixOutcome,
@@ -37,6 +38,12 @@ const durableStorage: DurablePhotoStorage = {
   },
 };
 
+const photoProcessor: VisitPhotoProcessor = {
+  async compressForEvidence() {
+    return 'file:///cache/compressed.jpg';
+  },
+};
+
 test('parses valid visit evidence route context', () => {
   assert.deepEqual(parseVisitEvidenceContext('7', '18.5'), {
     pointId: 7,
@@ -61,18 +68,18 @@ test('maps camera permission results to presentation states', async () => {
 
 test('maps capture, cancellation, and failure outcomes to visible states', async () => {
   assert.deepEqual(
-    await handleCameraOutcome(durableStorage, {
+    await handleCameraOutcome(photoProcessor, durableStorage, {
       kind: 'captured',
       temporaryUri: 'file:///cache/photo.jpg',
     }),
     { kind: 'captured', photoUri: 'file:///documents/visit-evidence/photo.jpg' },
   );
-  assert.deepEqual(await handleCameraOutcome(durableStorage, { kind: 'cancelled' }), {
+  assert.deepEqual(await handleCameraOutcome(photoProcessor, durableStorage, { kind: 'cancelled' }), {
     kind: 'ready',
     notice: 'Photo capture cancelled.',
   });
   assert.deepEqual(
-    await handleCameraOutcome(durableStorage, {
+    await handleCameraOutcome(photoProcessor, durableStorage, {
       kind: 'failed',
       message: 'The camera could not capture a photo.',
     }),
