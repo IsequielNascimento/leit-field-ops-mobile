@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSQLiteContext } from 'expo-sqlite';
 import { type RelativePathString, useFocusEffect, useRouter } from 'expo-router';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { SQLiteRouteRepository } from '../../data/repositories/SQLiteRouteRepository';
@@ -71,7 +71,7 @@ export function RouteHomeScreen() {
   );
 
   if (state.kind === 'loading') {
-    return <FeedbackScreen label="Loading local route…" />;
+    return <FeedbackScreen busy label="Loading local route…" />;
   }
 
   if (state.kind === 'empty') {
@@ -155,17 +155,26 @@ export function RouteHomeScreen() {
 
 interface FeedbackScreenProps {
   actionLabel?: string;
+  busy?: boolean;
   description?: string;
   label: string;
   onRetry?: () => void;
 }
 
-function FeedbackScreen({ actionLabel, description, label, onRetry }: FeedbackScreenProps) {
+function FeedbackScreen({ actionLabel, busy, description, label, onRetry }: FeedbackScreenProps) {
   return (
     <SafeAreaView style={styles.screen}>
       <View style={styles.feedbackContainer}>
         <SectionLabel>Field route</SectionLabel>
         <Text style={styles.feedbackTitle}>{label}</Text>
+        {busy ? (
+          <ActivityIndicator
+            accessibilityLabel={label}
+            accessibilityRole="progressbar"
+            color={tokens.colors.primary}
+            style={styles.feedbackIndicator}
+          />
+        ) : null}
         {description ? <Text style={styles.feedbackDescription}>{description}</Text> : null}
         {actionLabel && onRetry ? <PrimaryButton label={actionLabel} onPress={onRetry} style={styles.retry} /> : null}
       </View>
@@ -197,6 +206,9 @@ const styles = StyleSheet.create({
   feedbackDescription: {
     ...tokens.typography.body,
     color: tokens.colors.textMuted,
+  },
+  feedbackIndicator: {
+    alignSelf: 'flex-start',
   },
   feedbackTitle: {
     ...tokens.typography.title,

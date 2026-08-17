@@ -1,7 +1,15 @@
 import { useCallback, useMemo, useState } from 'react';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useFocusEffect } from 'expo-router';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { SQLiteRouteRepository } from '../../data/repositories/SQLiteRouteRepository';
@@ -65,7 +73,7 @@ export function PointDetailsScreen({ onBack, onStartVisit, pointId }: PointDetai
   };
 
   if (state.kind === 'loading') {
-    return <FeedbackScreen label="Loading local point…" onBack={onBack} />;
+    return <FeedbackScreen busy label="Loading local point…" onBack={onBack} />;
   }
 
   if (state.kind === 'invalid') {
@@ -181,13 +189,21 @@ function DetailRow({ label, value }: DetailRowProps) {
 
 interface FeedbackScreenProps {
   actionLabel?: string;
+  busy?: boolean;
   description?: string;
   label: string;
   onBack: () => void;
   onRetry?: () => void;
 }
 
-function FeedbackScreen({ actionLabel, description, label, onBack, onRetry }: FeedbackScreenProps) {
+function FeedbackScreen({
+  actionLabel,
+  busy,
+  description,
+  label,
+  onBack,
+  onRetry,
+}: FeedbackScreenProps) {
   return (
     <SafeAreaView style={styles.screen}>
       <View style={styles.feedbackContainer}>
@@ -202,6 +218,14 @@ function FeedbackScreen({ actionLabel, description, label, onBack, onRetry }: Fe
         </Pressable>
         <SectionLabel>Point details</SectionLabel>
         <Text style={styles.feedbackTitle}>{label}</Text>
+        {busy ? (
+          <ActivityIndicator
+            accessibilityLabel={label}
+            accessibilityRole="progressbar"
+            color={tokens.colors.primary}
+            style={styles.feedbackIndicator}
+          />
+        ) : null}
         {description ? <Text style={styles.feedbackDescription}>{description}</Text> : null}
         {actionLabel && onRetry ? <PrimaryButton label={actionLabel} onPress={onRetry} style={styles.retry} /> : null}
       </View>
@@ -278,6 +302,9 @@ const styles = StyleSheet.create({
   feedbackDescription: {
     ...tokens.typography.body,
     color: tokens.colors.textMuted,
+  },
+  feedbackIndicator: {
+    alignSelf: 'flex-start',
   },
   feedbackTitle: {
     ...tokens.typography.title,
