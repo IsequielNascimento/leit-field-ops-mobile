@@ -12,6 +12,7 @@ import { VisitSyncPanel } from '@/features/visits/presentation/components/VisitS
 import { useVisitSync } from '@/features/visits/presentation/VisitSyncProvider';
 import { BaseCard, PrimaryButton, SectionLabel } from '@/shared/presentation/components';
 import { tokens } from '@/shared/presentation/theme';
+import { RouteMapCard } from '../components/RouteMapCard';
 import { RoutePointCard } from '../components/RoutePointCard';
 import {
   getRouteHomeSummary,
@@ -55,6 +56,13 @@ export function RouteHomeScreen() {
   }, []);
 
   useEffect(() => subscribeToVisitChanges(applyVisitChange), [applyVisitChange, subscribeToVisitChanges]);
+
+  const openPoint = useCallback(
+    (pointId: number) => {
+      router.push(`./points/${pointId}` as RelativePathString);
+    },
+    [router],
+  );
 
   useFocusEffect(
     useCallback(() => {
@@ -113,6 +121,10 @@ export function RouteHomeScreen() {
           </View>
         </BaseCard>
 
+        <View style={styles.mapSection}>
+          <RouteMapCard onSelectPoint={(point) => openPoint(point.id)} points={route.points} />
+        </View>
+
         <View style={styles.syncPanel}>
           <VisitSyncPanel
             onSync={visitSync.sync}
@@ -130,9 +142,7 @@ export function RouteHomeScreen() {
           {route.points.map((point) => (
             <RoutePointCard
               key={point.id}
-              onPress={() => {
-                router.push(`./points/${point.id}` as RelativePathString);
-              }}
+              onPress={() => openPoint(point.id)}
               latestVisit={latestVisits.get(point.id) ?? null}
               point={point}
             />
@@ -204,6 +214,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flexDirection: 'row',
     justifyContent: 'space-between',
+    paddingHorizontal: tokens.spacing.lg,
+  },
+  mapSection: {
     paddingHorizontal: tokens.spacing.lg,
   },
   retry: {
