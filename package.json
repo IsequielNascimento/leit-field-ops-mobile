@@ -36,7 +36,7 @@
     "android": "expo run:android",
     "ios": "expo run:ios",
     "web": "expo start --web",
-    "test": "tsx --test src/features/routes/data/seed/officialRouteSource.test.ts src/features/routes/domain/use-cases/SeedOfficialRoute.test.ts src/features/routes/presentation/view-models/RouteHomeViewModel.test.ts src/features/routes/presentation/view-models/PointDetailsViewModel.test.ts src/features/visits/domain/use-cases/CaptureVisitLocation.test.ts src/features/visits/domain/use-cases/CompleteVisit.test.ts src/features/visits/domain/use-cases/DeriveVisitDisplayStatus.test.ts src/features/visits/domain/use-cases/PrepareVisitPhoto.test.ts src/features/visits/domain/validation/validateCurrentReading.test.ts src/features/visits/presentation/view-models/VisitEvidenceViewModel.test.ts",
+    "test": "tsx --test src/features/routes/data/seed/officialRouteSource.test.ts src/features/routes/domain/use-cases/SeedOfficialRoute.test.ts src/features/routes/presentation/view-models/RouteHomeViewModel.test.ts src/features/routes/presentation/view-models/PointDetailsViewModel.test.ts src/features/visits/domain/use-cases/CaptureVisitLocation.test.ts src/features/visits/domain/use-cases/CompleteVisit.test.ts src/features/visits/domain/use-cases/DeriveVisitDisplayStatus.test.ts src/features/visits/domain/use-cases/PrepareVisitPhoto.test.ts src/features/visits/domain/use-cases/SynchronizePendingVisits.test.ts src/features/visits/domain/validation/validateCurrentReading.test.ts src/features/visits/infrastructure/sync/SimulatedVisitSyncGateway.test.ts src/features/visits/presentation/view-models/VisitEvidenceViewModel.test.ts src/features/visits/presentation/view-models/VisitSyncViewModel.test.ts",
     "typecheck": "tsc --noEmit"
   },
   "private": true
