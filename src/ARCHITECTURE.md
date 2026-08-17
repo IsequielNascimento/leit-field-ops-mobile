@@ -29,3 +29,16 @@ is rendered from OpenStreetMap data and is attributed in the card footer.
   empty viewport renders an explanatory placeholder, failed tile requests leave the numbered
   markers in their official positions, and a render failure is contained by an error boundary.
   The route list and the visit flow stay reachable in every one of those cases.
+
+### Route sequence line
+
+The map draws a straight line connecting consecutive markers by the `order` field already
+persisted on each `route_points` row. This is a **static visualization only**: it shows the
+official visiting sequence at a glance, and it is not turn-by-turn directions and not a
+computed or optimized route. No routing, shortest-path or waypoint-reordering algorithm is
+involved, no distance or ETA is calculated, and the order is never recomputed or inferred —
+`buildRouteSegments` in `RouteMapViewModel` only sorts the already-built markers by their
+persisted `order` and joins each consecutive pair. Each segment is rendered as a plain `View`
+sized to the straight-line distance between its two markers and rotated with
+`Math.atan2(dy, dx)`, the same no-extra-dependency approach the tile/marker layer uses, so no
+SVG or drawing library is added for it.

@@ -5,11 +5,13 @@ import { getOfficialRoute, OFFICIAL_ROUTE_POINT_COUNT } from '../../data/seed/of
 import type { RoutePoint } from '../../domain/entities/RoutePoint';
 import {
   buildRouteMapView,
+  buildRouteSegments,
   MAX_ZOOM,
   MIN_ZOOM,
   SINGLE_POINT_ZOOM,
   TILE_SIZE,
 } from './RouteMapViewModel';
+import type { RouteMapMarker } from './RouteMapViewModel';
 
 const VIEWPORT = { width: 360, height: 220, padding: 24 };
 
@@ -170,4 +172,64 @@ test('centres a single located point at a readable street-level zoom', () => {
   assert.equal(view.zoom, SINGLE_POINT_ZOOM);
   assert.ok(Math.abs(view.markers[0].x - VIEWPORT.width / 2) < 1e-6);
   assert.ok(Math.abs(view.markers[0].y - VIEWPORT.height / 2) < 1e-6);
+});
+
+function marker(order: number, x: number, y: number): RouteMapMarker {
+  return { pointId: order, order, installationCode: `INSTALL-${order}`, customer: `Customer ${order}`, x, y };
+}
+
+test('joins every official marker into a straight-line chain following the persisted order, 1 to 7', () => {
+  const view = buildRouteMapView(officialPoints(), VIEWPORT);
+
+  assert.equal(view.kind, 'ready');
+  if (view.kind !== 'ready') {
+    return;
+  }
+
+  const segments = buildRouteSegments(view.markers);
+
+  assert.equal(segments.length, OFFICIAL_ROUTE_POINT_COUNT - 1);
+  assert.deepEqual(
+    segments.map((segment) => [segment.fromOrder, segment.toOrder]),
+    [
+      [1, 2],
+      [2, 3],
+      [3, 4],
+      [4, 5],
+      [5, 6],
+      [6, 7],
+    ],
+  );
+});
+
+test('sequences segments by the persisted order field, never by input array position', () => {
+  const shuffled = [marker(3, 30, 30), marker(1, 0, 0), marker(2, 10, 0)];
+
+  const segments = buildRouteSegments(shuffled);
+
+  assert.deepEqual(
+    segments.map((segment) => [segment.fromOrder, segment.toOrder]),
+    [
+      [1, 2],
+      [2, 3],
+    ],
+  );
+});
+
+test('computes each segment as the straight geometry between its two marker positions', () => {
+  const segments = buildRouteSegments([marker(1, 0, 0), marker(2, 30, 40)]);
+
+  assert.equal(segments.length, 1);
+  const [segment] = segments;
+
+  assert.equal(segment.key, '1-2');
+  assert.equal(segment.centerX, 15);
+  assert.equal(segment.centerY, 20);
+  assert.equal(segment.length, 50);
+  assert.ok(Math.abs(segment.angleDeg - (Math.atan2(40, 30) * 180) / Math.PI) < 1e-9);
+});
+
+test('produces no segments when fewer than two markers are located', () => {
+  assert.deepEqual(buildRouteSegments([]), []);
+  assert.deepEqual(buildRouteSegments([marker(1, 0, 0)]), []);
 });
