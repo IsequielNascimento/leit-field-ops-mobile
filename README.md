@@ -54,6 +54,7 @@ npm run check        # all three, in that order — the same steps CI runs
 | `expo-image-manipulator` | resizing and re-encoding the photo |
 | `expo-location` | latitude/longitude of the visit |
 | `@react-native-community/netinfo` | connectivity detection |
+| `expo-background-task` + `expo-task-manager` | opportunistic background synchronization |
 | `typescript`, `tsx`, `node:test` | typechecking and the test suite |
 | `eslint` + `eslint-config-expo` | linting |
 
@@ -140,6 +141,15 @@ second trigger with `skipped` instead of starting a parallel pass.
 `VisitSyncGateway` and passing it where `SimulatedVisitSyncGateway` is constructed today
 (`VisitSyncProvider`). The use case, the view-models and every screen stay unchanged.
 
+### Background synchronization
+
+A background task registered through `expo-background-task` calls the same use case, the same
+runner and the same state machine as the manual action — no rule is duplicated, and it only ever
+touches records that are already eligible. It is an optimization, not a mechanism the product
+depends on: Android schedules it through WorkManager, so battery state, Doze, app standby and
+vendor battery managers decide if and when it runs, a force-stopped app never runs it, and
+registration failures are swallowed. Nothing in the interface promises background execution.
+
 ### Map
 
 The route map is drawn with plain React Native `Image` and `View` primitives over keyless
@@ -199,14 +209,18 @@ the network or a device.
 - Persisted `error` state, manual retry, and an automatic attempt on reconnect
 - Route map with the seven official markers and the official sequence drawn between them
 - Photo resizing and compression before durable storage
+- Opportunistic background synchronization reusing the same use case
 - An integration test over the main visit flow
 
 ## Limitations and next steps
 
 - **Synchronization is simulated.** No server exists; `SimulatedVisitSyncGateway` is the seam a
   real HTTP client would replace.
-- **No background synchronization.** Sending happens on the manual action or on a reconnect while
-  the app is running. Nothing is promised while the app is closed.
+- **Background synchronization is opportunistic.** A registered background task reuses the same
+  synchronization use case, but Android's WorkManager decides if and when it runs — battery,
+  Doze, app standby and vendor battery managers can delay it indefinitely, and a force-stopped
+  app never runs it. The app is fully correct if it never runs; the manual action and the
+  reconnect attempt remain the paths that are actually guaranteed.
 - **No on-device OCR.** The reading is always typed by the agent.
 - **The map uses raster tiles.** Tiles need a connection to load; markers and the sequence line
   are drawn from local coordinates and still render offline, without the basemap underneath.

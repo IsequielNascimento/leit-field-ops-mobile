@@ -6,6 +6,7 @@ import { SQLiteVisitRepository } from '../data/repositories/SQLiteVisitRepositor
 import type { Visit, VisitSyncStatus } from '../domain/entities/Visit';
 import type { VisitSyncProgressListener } from '../domain/use-cases/SynchronizePendingVisits';
 import { VisitSyncRunner } from '../domain/use-cases/VisitSyncRunner';
+import { registerBackgroundVisitSync } from '../infrastructure/background/backgroundVisitSync';
 import { SimulatedVisitSyncGateway } from '../infrastructure/sync/SimulatedVisitSyncGateway';
 import {
   applyVisitSyncTransition,
@@ -104,6 +105,11 @@ export function VisitSyncProvider({ children }: VisitSyncProviderProps) {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void refresh();
   }, [refresh]);
+
+  // MARK: opportunistic only — the app is fully correct if this never registers or never runs
+  useEffect(() => {
+    void registerBackgroundVisitSync();
+  }, []);
 
   useEffect(() => {
     const previous = connectivityRef.current;
