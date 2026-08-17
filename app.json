@@ -43,6 +43,15 @@
           "recordAudioAndroid": false,
           "barcodeScannerEnabled": false
         }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Allow LEIT Field Ops to record where a visit was carried out.",
+          "isAndroidBackgroundLocationEnabled": false,
+          "isAndroidForegroundServiceEnabled": false,
+          "isIosBackgroundLocationEnabled": false
+        }
       ]
     ],
     "experiments": {
