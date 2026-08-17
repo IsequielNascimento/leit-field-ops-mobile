@@ -1,8 +1,9 @@
 /**
- * TASK-003 baseline synchronization states. The `error` state is owned by
- * a later synchronization task and is intentionally not part of this union.
+ * Synchronization states a visit can be persisted in:
+ * `pending -> syncing -> synced`, with `pending -> syncing -> error` when the
+ * send is refused. An `error` record is retryable and re-enters `syncing`.
  */
-export type VisitSyncStatus = 'pending' | 'syncing' | 'synced';
+export type VisitSyncStatus = 'pending' | 'syncing' | 'synced' | 'error';
 
 /**
  * A completed visit record, persisted entirely offline. Captures the

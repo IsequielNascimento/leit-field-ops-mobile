@@ -5,6 +5,7 @@ import type { StatusTone } from '@/shared/presentation/theme';
 import { tokens } from '@/shared/presentation/theme';
 import {
   describeVisitSyncState,
+  eligibleForSyncCount,
   type VisitSyncState,
   type VisitSyncSummary,
 } from '../view-models/VisitSyncViewModel';
@@ -13,6 +14,16 @@ interface VisitSyncPanelProps {
   onSync: () => void;
   state: VisitSyncState;
   summary: VisitSyncSummary;
+}
+
+function idleBadge(summary: VisitSyncSummary): { label: string; tone: StatusTone } {
+  if (summary.error > 0) {
+    return { label: 'Failed', tone: 'danger' };
+  }
+
+  return eligibleForSyncCount(summary) === 0
+    ? { label: 'Synced', tone: 'success' }
+    : { label: 'Pending', tone: 'warning' };
 }
 
 function badgeForState(state: VisitSyncState, summary: VisitSyncSummary): {
@@ -26,22 +37,24 @@ function badgeForState(state: VisitSyncState, summary: VisitSyncSummary): {
       return { label: 'Not sent', tone: 'danger' };
     case 'completed':
       if (state.failed > 0) {
-        return { label: 'Partially sent', tone: 'warning' };
+        return { label: 'Failed', tone: 'danger' };
       }
 
-      return summary.pending === 0
-        ? { label: 'Synced', tone: 'success' }
-        : { label: 'Pending', tone: 'warning' };
+      return idleBadge(summary);
     case 'idle':
-      return summary.pending === 0
-        ? { label: 'Synced', tone: 'success' }
-        : { label: 'Pending', tone: 'warning' };
+      return idleBadge(summary);
   }
+}
+
+function actionLabel(summary: VisitSyncSummary): string {
+  return summary.error > 0 ? 'Retry failed visits' : 'Sync pending visits';
 }
 
 export function VisitSyncPanel({ onSync, state, summary }: VisitSyncPanelProps) {
   const isSyncing = state.kind === 'syncing';
   const badge = badgeForState(state, summary);
+  const eligible = eligibleForSyncCount(summary);
+  const label = actionLabel(summary);
 
   return (
     <BaseCard style={styles.card}>
@@ -66,6 +79,12 @@ export function VisitSyncPanel({ onSync, state, summary }: VisitSyncPanelProps) 
           <SectionLabel>Synced</SectionLabel>
           <Text style={styles.countValue}>{summary.synced}</Text>
         </View>
+        <View style={styles.count}>
+          <SectionLabel>Failed</SectionLabel>
+          <Text style={[styles.countValue, summary.error > 0 && styles.countValueFailed]}>
+            {summary.error}
+          </Text>
+        </View>
       </View>
 
       {isSyncing ? (
@@ -76,9 +95,9 @@ export function VisitSyncPanel({ onSync, state, summary }: VisitSyncPanelProps) 
       ) : null}
 
       <PrimaryButton
-        accessibilityLabel="Sync pending visits"
-        disabled={isSyncing || summary.pending === 0}
-        label={isSyncing ? 'Syncing…' : 'Sync pending visits'}
+        accessibilityLabel={label}
+        disabled={isSyncing || eligible === 0}
+        label={isSyncing ? 'Syncing…' : label}
         onPress={onSync}
       />
     </BaseCard>
@@ -95,6 +114,9 @@ const styles = StyleSheet.create({
   countValue: {
     ...tokens.typography.title,
     color: tokens.colors.text,
+  },
+  countValueFailed: {
+    color: tokens.colors.status.danger.text,
   },
   counts: {
     flexDirection: 'row',

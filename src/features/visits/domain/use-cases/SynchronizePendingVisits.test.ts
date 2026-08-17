@@ -97,7 +97,7 @@ test('reports each persisted transition to the progress listener', async () => {
   assert.deepEqual(progress, ['pending->syncing', 'syncing->synced']);
 });
 
-test('only sends records that are pending', async () => {
+test('never re-sends a record that is already synced', async () => {
   const { repository } = createRepository([
     createVisit('1', 'synced'),
     createVisit('22', 'pending'),
@@ -116,7 +116,7 @@ test('only sends records that are pending', async () => {
   assert.deepEqual(result, { kind: 'finished', summary: { attempted: 1, synced: 1, failed: 0 } });
 });
 
-test('does not call the sender when nothing is pending', async () => {
+test('does not call the sender when nothing is eligible', async () => {
   const { repository } = createRepository([createVisit('1', 'synced')]);
   let calls = 0;
 
@@ -132,7 +132,7 @@ test('does not call the sender when nothing is pending', async () => {
   assert.deepEqual(result, { kind: 'finished', summary: { attempted: 0, synced: 0, failed: 0 } });
 });
 
-test('restores a rejected record to pending and keeps processing the queue', async () => {
+test('parks a rejected record in error and keeps processing the queue', async () => {
   const { repository, updates, stored } = createRepository([createVisit('1'), createVisit('22')]);
 
   const result = await synchronizePendingVisits(
@@ -144,11 +144,11 @@ test('restores a rejected record to pending and keeps processing the queue', asy
 
   assert.deepEqual(updates, [
     { visitId: '1', syncStatus: 'syncing' },
-    { visitId: '1', syncStatus: 'pending' },
+    { visitId: '1', syncStatus: 'error' },
     { visitId: '22', syncStatus: 'syncing' },
     { visitId: '22', syncStatus: 'synced' },
   ]);
-  assert.equal(stored.get('1')?.syncStatus, 'pending');
+  assert.equal(stored.get('1')?.syncStatus, 'error');
   assert.equal(stored.get('22')?.syncStatus, 'synced');
   assert.deepEqual(result, { kind: 'finished', summary: { attempted: 2, synced: 1, failed: 1 } });
 });
@@ -163,8 +163,91 @@ test('treats a thrown sender error as a rejection and leaves no record in syncin
     }),
   );
 
-  assert.equal(stored.get('1')?.syncStatus, 'pending');
+  assert.equal(stored.get('1')?.syncStatus, 'error');
   assert.deepEqual(result, { kind: 'finished', summary: { attempted: 1, synced: 0, failed: 1 } });
+});
+
+test('a failed send preserves the local record and all of its evidence', async () => {
+  const original = createVisit('1');
+  const { repository, stored } = createRepository([original]);
+
+  await synchronizePendingVisits(
+    repository,
+    createGateway(async () => ({ kind: 'rejected', message: 'refused' })),
+  );
+
+  const failed = stored.get('1');
+
+  assert.ok(failed);
+  assert.equal(stored.size, 1);
+  assert.deepEqual(failed, { ...original, syncStatus: 'error' });
+});
+
+test('retries a record that a previous run left in error', async () => {
+  const { repository, updates, stored } = createRepository([createVisit('1', 'error')]);
+
+  const result = await synchronizePendingVisits(
+    repository,
+    createGateway(async () => ({ kind: 'accepted' })),
+  );
+
+  assert.deepEqual(updates, [
+    { visitId: '1', syncStatus: 'syncing' },
+    { visitId: '1', syncStatus: 'synced' },
+  ]);
+  assert.equal(stored.get('1')?.syncStatus, 'synced');
+  assert.deepEqual(result, { kind: 'finished', summary: { attempted: 1, synced: 1, failed: 0 } });
+});
+
+test('recovers a record a killed process left stranded in syncing', async () => {
+  const { repository, stored } = createRepository([createVisit('1', 'syncing')]);
+  const sent: string[] = [];
+
+  const result = await synchronizePendingVisits(
+    repository,
+    createGateway(async (visit) => {
+      sent.push(visit.id);
+      return { kind: 'accepted' };
+    }),
+  );
+
+  assert.deepEqual(sent, ['1']);
+  assert.equal(stored.get('1')?.syncStatus, 'synced');
+  assert.deepEqual(result, { kind: 'finished', summary: { attempted: 1, synced: 1, failed: 0 } });
+});
+
+test('sends every eligible state exactly once, ordered by capture time', async () => {
+  const { repository } = createRepository([
+    createVisit('1', 'pending'),
+    createVisit('22', 'error'),
+    createVisit('333', 'syncing'),
+    createVisit('4444', 'synced'),
+  ]);
+  const sent: string[] = [];
+
+  const result = await synchronizePendingVisits(
+    repository,
+    createGateway(async (visit) => {
+      sent.push(visit.id);
+      return { kind: 'accepted' };
+    }),
+  );
+
+  assert.deepEqual(sent, ['1', '22', '333']);
+  assert.deepEqual(result, { kind: 'finished', summary: { attempted: 3, synced: 3, failed: 0 } });
+});
+
+test('a record that fails twice stays in error and is never lost', async () => {
+  const { repository, stored } = createRepository([createVisit('1')]);
+  const refusing = createGateway(async () => ({ kind: 'rejected' as const, message: 'refused' }));
+
+  await synchronizePendingVisits(repository, refusing);
+  const afterFirst = stored.get('1');
+  const second = await synchronizePendingVisits(repository, refusing);
+
+  assert.equal(afterFirst?.syncStatus, 'error');
+  assert.deepEqual(stored.get('1'), afterFirst);
+  assert.deepEqual(second, { kind: 'finished', summary: { attempted: 1, synced: 0, failed: 1 } });
 });
 
 function createRepositoryFailingWriteOf(status: VisitSyncStatus): VisitRepository {
@@ -200,8 +283,8 @@ test('reports a failure instead of rejecting when the synced write fails', async
   assert.deepEqual(result, { kind: 'failed', message: 'SQLite write failed' });
 });
 
-test('reports a failure instead of rejecting when restoring a refused record fails', async () => {
-  const repository = createRepositoryFailingWriteOf('pending');
+test('reports a failure instead of rejecting when the error write fails', async () => {
+  const repository = createRepositoryFailingWriteOf('error');
 
   const result = await synchronizePendingVisits(
     repository,
