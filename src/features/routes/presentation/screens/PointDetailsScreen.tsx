@@ -127,7 +127,8 @@ export function PointDetailsScreen({ onBack, onStartVisit, pointId }: PointDetai
           <View style={styles.appBarTitleRow}>
             <View style={styles.appBarTitle}>
               <SectionLabel style={styles.appBarLabel}>Point details</SectionLabel>
-              <Text style={styles.installation}>{point.installationCode}</Text>
+              <Text style={styles.installation}>{point.customer}</Text>
+              <Text style={styles.appBarInstallation}>{point.installationCode}</Text>
             </View>
             <StatusBadge label={displayStatus.label} tone={displayStatus.tone} />
           </View>
@@ -249,6 +250,10 @@ const styles = StyleSheet.create({
     borderWidth: tokens.borders.width.strong,
     gap: tokens.spacing.md,
     padding: tokens.spacing.lg,
+  },
+  appBarInstallation: {
+    ...tokens.typography.body,
+    color: tokens.colors.textInverse,
   },
   appBarLabel: {
     color: tokens.colors.textInverse,

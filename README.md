@@ -42,6 +42,45 @@ npm run check        # all three, in that order — the same steps CI runs
 
 `.github/workflows/ci.yml` runs exactly those three steps on every push and pull request.
 
+## Why React Native
+
+The challenge allows React Native or Flutter. React Native with Expo was chosen for reasons that
+are specific to this problem, not general preference:
+
+- **The hard requirement here is offline persistence, not rendering.** The weight of the
+  evaluation sits on data surviving restarts and airplane mode. Expo ships first-party modules for
+  exactly the four device concerns this app needs — SQLite, camera, file system and location —
+  under one versioned SDK, so there is no plugin-compatibility research standing between the
+  requirement and a working build.
+- **The domain layer is plain TypeScript.** Reading validation, the sync state machine and the
+  seed rules have no framework imports, so they are tested with Node's own test runner in
+  milliseconds, with no emulator and no Dart VM in the loop. That is what made it practical to
+  cover the schema and the whole visit flow with automated tests.
+- **The team-fit argument.** TypeScript across domain, data and presentation keeps one language
+  and one set of types from the SQLite row to the screen, and it is the stack I can move fastest
+  and most safely in.
+
+Flutter would have been a defensible choice too, particularly for UI consistency. It was not
+chosen because it would have added a second language to the stack without improving anything the
+evaluation actually weighs.
+
+## State management
+
+No external state library is used, and that is a deliberate decision rather than an omission.
+The application state is small and almost entirely **persisted state**: the route, the points and
+the visits live in SQLite, and the screens derive what they show from it on focus. Adding Redux,
+Zustand or MobX would have introduced a second source of truth next to the database.
+
+What exists instead:
+
+- Screen state is a single explicit `useState` union per screen (`loading | loaded | empty |
+  error`), derived by pure view-model functions that are unit tested without rendering.
+- The two genuinely cross-screen concerns — connectivity and the synchronization queue — are React
+  contexts (`ConnectivityProvider`, `VisitSyncProvider`), each owning exactly one subscription and
+  one runner for the whole tree.
+- Cross-screen updates during a sync run are pushed through a small listener registry rather than
+  by re-querying, so the route list follows each transition live without polling.
+
 ## Framework and main libraries
 
 | Library | Used for |
