@@ -46,6 +46,7 @@ interface VisitEvidenceScreenProps {
   locationService: LocationPermissionGateway & CurrentPositionProvider;
   onBack: () => void;
   onCompleteVisit: (photoUri: string, reading: LocationReading) => Promise<VisitCompletionState>;
+  onVisitSaved: () => void;
   onLocationReady?: (reading: LocationReading) => void;
   onPhotoReady?: (photoUri: string) => void;
   photoProcessor: VisitPhotoProcessor;
@@ -59,6 +60,7 @@ export function VisitEvidenceScreen({
   onCompleteVisit,
   onLocationReady,
   onPhotoReady,
+  onVisitSaved,
   photoProcessor,
 }: VisitEvidenceScreenProps) {
   const [state, setState] = useState<VisitEvidenceState>({ kind: 'ready' });
@@ -119,8 +121,10 @@ export function VisitEvidenceScreen({
     const result = await onCompleteVisit(state.photoUri, locationState.reading);
     setCompletionState(result);
 
+    // MARK: the visit is done, so the agent belongs back on the route, not on
+    // the point they just finished with another back tap to go
     if (result.kind === 'saved') {
-      onBack();
+      onVisitSaved();
     }
   };
 
@@ -316,7 +320,7 @@ export function VisitEvidenceScreen({
                   Visit saved on this device and waiting to be synchronized.
                 </Text>
               </View>
-              <PrimaryButton label="Back to point" onPress={onBack} />
+              <PrimaryButton label="Back to route" onPress={onVisitSaved} />
             </BaseCard>
           ) : null}
 

@@ -259,14 +259,14 @@ const styles = StyleSheet.create({
     color: tokens.colors.textInverse,
   },
   appBarTitle: {
-    flex: 1,
+    alignSelf: 'stretch',
     gap: tokens.spacing.xs,
   },
+  // MARK: stacked, not a row: the status label is wide enough to squeeze the
+  // customer name into one broken word per line on a phone-width header
   appBarTitleRow: {
     alignItems: 'flex-start',
-    flexDirection: 'row',
-    gap: tokens.spacing.md,
-    justifyContent: 'space-between',
+    gap: tokens.spacing.sm,
   },
   backButton: {
     alignSelf: 'flex-start',
