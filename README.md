@@ -7,8 +7,14 @@ medidor e localização, e sincronizar depois.
 Stack: Expo SDK 57, React Native 0.86, TypeScript, SQLite.
 
 **APK pronto para instalar: [`leit-field-ops.apk`](leit-field-ops.apk)**, na raiz do repositório. Roda
-em aparelho físico e em emulador, sem precisar compilar nada. Ao instalar fora da Play Store o
-Android pede confirmação de origem desconhecida.
+em aparelho físico e em emulador, sem precisar compilar nada.
+
+```bash
+adb install leit-field-ops.apk
+```
+
+Também funciona baixar o arquivo e abrir direto no aparelho. Por ser instalação fora da Play Store,
+o Android pede confirmação de origem desconhecida.
 
 Versão em inglês: [README.en.md](README.en.md). Decisões detalhadas:
 [docs/arquitetura.md](docs/arquitetura.md).

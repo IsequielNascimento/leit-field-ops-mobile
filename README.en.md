@@ -7,8 +7,14 @@ device location, and synchronize later.
 Stack: Expo SDK 57, React Native 0.86, TypeScript, SQLite.
 
 **Ready to install: [`leit-field-ops.apk`](leit-field-ops.apk)**, in the repository root. It runs on
-a physical device and on an emulator, with nothing to compile. Installing outside the Play Store
-makes Android ask for confirmation about an unknown source.
+a physical device and on an emulator, with nothing to compile.
+
+```bash
+adb install leit-field-ops.apk
+```
+
+Downloading the file and opening it on the device works too. Since this installs outside the Play
+Store, Android asks for confirmation about an unknown source.
 
 Portuguese version, the primary document: [README.md](README.md). Detailed decisions, in
 Portuguese: [docs/arquitetura.md](docs/arquitetura.md).
