@@ -6,6 +6,10 @@ medidor e localização, e sincronizar depois.
 
 Stack: Expo SDK 57, React Native 0.86, TypeScript, SQLite.
 
+**APK pronto para instalar: [`leit-field-ops.apk`](leit-field-ops.apk)**, na raiz do repositório. Roda
+em aparelho físico e em emulador, sem precisar compilar nada. Ao instalar fora da Play Store o
+Android pede confirmação de origem desconhecida.
+
 Versão em inglês: [README.en.md](README.en.md). Decisões detalhadas:
 [docs/arquitetura.md](docs/arquitetura.md).
 
@@ -24,6 +28,29 @@ build já instalado, `npm start` sobe apenas o bundler.
 
 Qualidade: `npm run typecheck`, `npm run lint`, `npm test`. O `npm run check` roda os três, que é
 o mesmo que o CI executa. Os testes não acessam rede nem dependem de dispositivo.
+
+### Gerando o APK
+
+```bash
+npx expo prebuild -p android
+cd android && ./gradlew assembleRelease -PreactNativeArchitectures=arm64-v8a,x86_64
+```
+
+O APK sai em `android/app/build/outputs/apk/release/`. O build exige JDK 17 e o Android SDK
+apontado por `ANDROID_HOME`.
+
+As duas arquiteturas cobrem aparelho físico moderno e emulador padrão. Sem esse parâmetro o Gradle
+empacota também `armeabi-v7a` e `x86`, que são 32 bits e hoje só interessam a aparelhos antigos, e
+o APK passa de 120 MB. É o que mantém o arquivo versionado abaixo do limite de 100 MB por arquivo
+do GitHub.
+
+A assinatura de release é injetada pelo config plugin `plugins/withReleaseSigning.js`, porque o
+`expo prebuild` regenera a pasta `android/` e descartaria qualquer edição manual no `build.gradle`.
+O plugin lê quatro propriedades Gradle (`LEIT_RELEASE_STORE_FILE`, `LEIT_RELEASE_STORE_PASSWORD`,
+`LEIT_RELEASE_KEY_ALIAS` e `LEIT_RELEASE_KEY_PASSWORD`), que ficam em `~/.gradle/gradle.properties`,
+fora do repositório. A keystore também não é versionada. Quando essas propriedades não existem,
+que é o caso de quem acabou de clonar, o build cai na chave de debug e ainda produz um APK
+instalável, em vez de falhar.
 
 ## Tecnologias
 

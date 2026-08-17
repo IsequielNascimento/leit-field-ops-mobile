@@ -71,9 +71,17 @@ test('reports permission and position failures without throwing', async () => {
   assert.deepEqual(
     await captureVisitLocation(
       grantedPermission,
-      positionProvider({ kind: 'unavailable', message: 'Location services are turned off.' }),
+      positionProvider({
+        kind: 'unavailable',
+        message: 'Location services are turned off.',
+        reason: 'services-disabled',
+      }),
     ),
-    { kind: 'unavailable', message: 'Location services are turned off.' },
+    {
+      kind: 'unavailable',
+      message: 'Location services are turned off.',
+      reason: 'services-disabled',
+    },
   );
 
   assert.deepEqual(

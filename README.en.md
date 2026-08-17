@@ -6,6 +6,10 @@ device location, and synchronize later.
 
 Stack: Expo SDK 57, React Native 0.86, TypeScript, SQLite.
 
+**Ready to install: [`leit-field-ops.apk`](leit-field-ops.apk)**, in the repository root. It runs on
+a physical device and on an emulator, with nothing to compile. Installing outside the Play Store
+makes Android ask for confirmation about an unknown source.
+
 Portuguese version, the primary document: [README.md](README.md). Detailed decisions, in
 Portuguese: [docs/arquitetura.md](docs/arquitetura.md).
 
@@ -24,6 +28,29 @@ build installed, `npm start` starts only the bundler.
 
 Quality: `npm run typecheck`, `npm run lint`, `npm test`. `npm run check` runs all three, which is
 what CI runs. The tests touch no network and need no device.
+
+### Building the APK
+
+```bash
+npx expo prebuild -p android
+cd android && ./gradlew assembleRelease -PreactNativeArchitectures=arm64-v8a,x86_64
+```
+
+The APK lands in `android/app/build/outputs/apk/release/`. The build needs JDK 17 and the Android
+SDK pointed at by `ANDROID_HOME`.
+
+Those two architectures cover modern physical devices and the standard emulator. Without the
+parameter Gradle also packages `armeabi-v7a` and `x86`, both 32 bit and only relevant to old
+devices, and the APK goes past 120 MB. Restricting them is what keeps the committed file under
+GitHub's 100 MB per file limit.
+
+Release signing is injected by the `plugins/withReleaseSigning.js` config plugin, because
+`expo prebuild` regenerates `android/` and would discard any manual `build.gradle` edit. The plugin
+reads four Gradle properties (`LEIT_RELEASE_STORE_FILE`, `LEIT_RELEASE_STORE_PASSWORD`,
+`LEIT_RELEASE_KEY_ALIAS` and `LEIT_RELEASE_KEY_PASSWORD`) kept in `~/.gradle/gradle.properties`,
+outside the repository. The keystore is not versioned either. When those properties are absent,
+which is the case for anyone who just cloned the project, the build falls back to the debug key and
+still produces an installable APK instead of failing.
 
 ## Technologies
 

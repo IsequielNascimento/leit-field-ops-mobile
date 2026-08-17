@@ -40,6 +40,7 @@ export default function VisitEvidenceRoute() {
 
         return submitCompletedVisit(routeRepository, visitRepository, context, photoUri, reading);
       }}
+      onVisitSaved={() => router.dismissAll()}
       photoProcessor={photoProcessor}
     />
   );

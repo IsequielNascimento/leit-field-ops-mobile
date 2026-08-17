@@ -62,6 +62,41 @@ vez de abortar. Uma falha de processamento custa tamanho de imagem, nunca a evid
 de conclusão. Falha do armazenamento durável é o único caso que ainda reporta erro, porque nesse
 ponto não existe arquivo que fosse sobreviver à limpeza do cache.
 
+### Estabilidade do handle
+
+`SQLiteProvider` mantém `onInit` na lista de dependências do seu efeito e fecha o banco no cleanup.
+Uma arrow function inline ali é referência nova a cada render, então o provider fechava e reabria o
+banco a cada re-render da árvore. O teardown do efeito antigo e o setup do novo disputam o mesmo
+handle nativo, e o aplicativo podia ficar segurando uma conexão já fechada, o que aparecia como
+`NativeDatabase.prepareAsync` rejeitando com `NullPointerException` em toda consulta até o processo
+reiniciar. Por isso o inicializador é uma função de módulo, em `initializeDatabase.ts`, com
+identidade estável para sempre.
+
+## Localização offline
+
+Offline é justamente quando obter posição é mais difícil. Sem rede o aparelho perde o
+posicionamento assistido e passa a depender do GNSS puro, que dentro de um prédio pode levar
+minutos ou nunca chegar. A primeira versão chamava `getCurrentPositionAsync` sem prazo, então a
+requisição ficava pendurada, o botão permanecia ocupado e a visita não tinha como ser concluída.
+
+A leitura agora tem três etapas. Primeiro verifica se os serviços de localização estão ligados.
+Depois tenta uma posição nova com orçamento de 15 segundos, imposto por `resolveWithin`, uma função
+pura e testada em `shared/async`. Se esse prazo estourar, cai para `getLastKnownPositionAsync` com
+idade máxima de 5 minutos, que responde do cache do sistema sem depender de novo fix. Só quando não
+existe nem posição nova nem cache recente o resultado é indisponível, com mensagem orientando a ir
+para uma área aberta.
+
+Quando o serviço de localização do aparelho está desligado por completo, nem posição nova nem
+cache existem, e insistir em tentar de novo não leva a lugar nenhum. Esse caso tem estado próprio,
+`services-disabled`, separado da falta de fix, porque a saída é outra: a tela oferece ligar o
+serviço pelo diálogo do sistema, sem sair do aplicativo, e como alternativa abrir a tela de
+localização do Android. A distinção nasce no domínio, no campo `reason` do resultado indisponível,
+e não em texto de mensagem.
+
+O `capturedAt` gravado na visita é sempre o horário do fix, não o horário em que o botão foi
+tocado. Quando a posição vem do cache, a tela mostra esse horário mais antigo, que é a informação
+honesta: o registro diz onde e quando o aparelho de fato mediu.
+
 ## Sincronização
 
 O envio é um contrato de domínio, e a implementação atual é um simulador local sem qualquer acesso
