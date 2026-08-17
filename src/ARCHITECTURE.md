@@ -89,3 +89,20 @@ phone screen read in direct sunlight. Long-running work adds an `ActivityIndicat
 `accessibilityRole="progressbar"` next to its label, and the actions that start work
 (`Sync pending visits`, `Complete visit`, `Capture photo`) disable themselves while running so a
 second tap cannot start a duplicate run.
+
+## Test strategy
+
+`npm test` runs Node's built-in test runner through `tsx` and discovers every `src/**/*.test.ts`
+file, so a new test is picked up by adding the file — there is no list to keep in sync. No test
+touches the network or a device.
+
+Two levels are covered:
+
+- **Domain and view-model logic** runs against hand-written fakes of the repository and service
+  contracts: reading validation, route seed idempotency, visit completion, the photo pipeline,
+  location capture, the sync state machine and its single-flight runner, and the reconnect rule.
+- **Data and schema** run against the real SQLite engine bundled with Node, through
+  `shared/data/database/testing/inMemoryTestDatabase.ts`, a test-only adapter implementing the
+  slice of `SQLiteDatabase` the app uses. That is what makes migration ordering, the widened
+  `sync_status` check constraint, the seed's idempotency at SQL level, and the foreign key from
+  a visit to its route point provable without an emulator.
