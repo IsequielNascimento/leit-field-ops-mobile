@@ -18,7 +18,7 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.anonymous.leitfieldopsmobile"
+      "package": "com.isequielnascimento.leitfieldops"
     },
     "web": {
       "bundler": "metro",
@@ -53,7 +53,8 @@
           "isIosBackgroundLocationEnabled": false
         }
       ],
-      "expo-background-task"
+      "expo-background-task",
+      "./plugins/withReleaseSigning"
     ],
     "experiments": {
       "typedRoutes": true

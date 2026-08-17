@@ -25,6 +25,24 @@ build já instalado, `npm start` sobe apenas o bundler.
 Qualidade: `npm run typecheck`, `npm run lint`, `npm test`. O `npm run check` roda os três, que é
 o mesmo que o CI executa. Os testes não acessam rede nem dependem de dispositivo.
 
+### Gerando o APK
+
+```bash
+npx expo prebuild -p android
+cd android && ./gradlew assembleRelease
+```
+
+O APK sai em `android/app/build/outputs/apk/release/`. O build exige JDK 17 e o Android SDK
+apontado por `ANDROID_HOME`.
+
+A assinatura de release é injetada pelo config plugin `plugins/withReleaseSigning.js`, porque o
+`expo prebuild` regenera a pasta `android/` e descartaria qualquer edição manual no `build.gradle`.
+O plugin lê quatro propriedades Gradle (`LEIT_RELEASE_STORE_FILE`, `LEIT_RELEASE_STORE_PASSWORD`,
+`LEIT_RELEASE_KEY_ALIAS` e `LEIT_RELEASE_KEY_PASSWORD`), que ficam em `~/.gradle/gradle.properties`,
+fora do repositório. A keystore também não é versionada. Quando essas propriedades não existem,
+que é o caso de quem acabou de clonar, o build cai na chave de debug e ainda produz um APK
+instalável, em vez de falhar.
+
 ## Tecnologias
 
 * Persistência: `expo-sqlite`, banco único com migrações versionadas
