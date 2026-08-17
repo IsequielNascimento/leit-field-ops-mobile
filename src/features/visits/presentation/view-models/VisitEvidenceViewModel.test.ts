@@ -18,6 +18,7 @@ import type {
   LocationReading,
 } from '../../domain/services/LocationEvidenceService';
 import {
+  describeMissingEvidence,
   handleCameraOutcome,
   parseVisitEvidenceContext,
   requestCamera,
@@ -135,9 +136,28 @@ test('maps location denial and unavailability to visible states without throwing
   assert.deepEqual(
     await requestVisitLocation(
       locationPermissionGateway({ kind: 'granted' }),
-      positionProvider({ kind: 'unavailable', message: 'Location services are turned off on this device.' }),
+      positionProvider({
+        kind: 'unavailable',
+        message: 'Location services are turned off on this device.',
+        reason: 'services-disabled',
+      }),
     ),
-    { kind: 'error', message: 'Location services are turned off on this device.' },
+    {
+      kind: 'services-disabled',
+      message: 'Location services are turned off on this device.',
+    },
+  );
+
+  assert.deepEqual(
+    await requestVisitLocation(
+      locationPermissionGateway({ kind: 'granted' }),
+      positionProvider({
+        kind: 'unavailable',
+        message: 'The device could not get a location fix.',
+        reason: 'no-fix',
+      }),
+    ),
+    { kind: 'error', message: 'The device could not get a location fix.' },
   );
 
   assert.deepEqual(
@@ -239,4 +259,26 @@ test('does not save when the point is missing from local storage', async () => {
 
 test('retry resets visit-completion feedback', () => {
   assert.deepEqual(resetCompletionState(), { kind: 'idle' });
+});
+
+test('the blocked completion action always names what is still missing', () => {
+  const capturedPhoto = { kind: 'captured', photoUri: 'file:///documents/photo.jpg' } as const;
+  const capturedLocation = {
+    kind: 'captured',
+    reading: { latitude: -3.73, longitude: -38.49, capturedAt: '2026-03-01T12:00:00.000Z' },
+  } as const;
+
+  assert.equal(
+    describeMissingEvidence({ kind: 'ready' }, { kind: 'idle' }),
+    'Capture the meter photo and record the current location to complete this visit.',
+  );
+  assert.equal(
+    describeMissingEvidence({ kind: 'ready' }, capturedLocation),
+    'Capture the meter photo to complete this visit.',
+  );
+  assert.equal(
+    describeMissingEvidence(capturedPhoto, { kind: 'services-disabled', message: 'off' }),
+    'Record the current location to complete this visit.',
+  );
+  assert.equal(describeMissingEvidence(capturedPhoto, capturedLocation), null);
 });

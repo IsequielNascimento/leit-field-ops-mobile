@@ -76,6 +76,13 @@ idade máxima de 5 minutos, que responde do cache do sistema sem depender de nov
 existe nem posição nova nem cache recente o resultado é indisponível, com mensagem orientando a ir
 para uma área aberta.
 
+Quando o serviço de localização do aparelho está desligado por completo, nem posição nova nem
+cache existem, e insistir em tentar de novo não leva a lugar nenhum. Esse caso tem estado próprio,
+`services-disabled`, separado da falta de fix, porque a saída é outra: a tela oferece ligar o
+serviço pelo diálogo do sistema, sem sair do aplicativo, e como alternativa abrir a tela de
+localização do Android. A distinção nasce no domínio, no campo `reason` do resultado indisponível,
+e não em texto de mensagem.
+
 O `capturedAt` gravado na visita é sempre o horário do fix, não o horário em que o botão foi
 tocado. Quando a posição vem do cache, a tela mostra esse horário mais antigo, que é a informação
 honesta: o registro diz onde e quando o aparelho de fato mediu.

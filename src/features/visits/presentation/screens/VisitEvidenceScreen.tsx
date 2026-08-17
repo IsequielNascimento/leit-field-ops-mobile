@@ -20,6 +20,7 @@ import type {
   CurrentPositionProvider,
   LocationPermissionGateway,
   LocationReading,
+  LocationServicesActivator,
 } from '../../domain/services/LocationEvidenceService';
 import { ExpoCameraPreview } from '../../infrastructure/camera/ExpoCameraPreview';
 import type {
@@ -29,6 +30,7 @@ import type {
   VisitLocationState,
 } from '../view-models/VisitEvidenceViewModel';
 import {
+  describeMissingEvidence,
   handleCameraOutcome,
   requestCamera,
   requestVisitLocation,
@@ -43,7 +45,7 @@ import { tokens } from '@/shared/presentation/theme';
 interface VisitEvidenceScreenProps {
   cameraService: CameraPermissionGateway & DurablePhotoStorage;
   context: VisitEvidenceContext | null;
-  locationService: LocationPermissionGateway & CurrentPositionProvider;
+  locationService: LocationPermissionGateway & CurrentPositionProvider & LocationServicesActivator;
   onBack: () => void;
   onCompleteVisit: (photoUri: string, reading: LocationReading) => Promise<VisitCompletionState>;
   onVisitSaved: () => void;
@@ -106,7 +108,27 @@ export function VisitEvidenceScreen({
     }
   };
 
-  const evidenceIsComplete = state.kind === 'captured' && locationState.kind === 'captured';
+  const enableLocationServices = async () => {
+    setLocationState({ kind: 'requesting' });
+
+    if (await locationService.promptToEnableServices()) {
+      await captureLocation();
+      return;
+    }
+
+    setLocationState(await requestVisitLocation(locationService, locationService));
+  };
+
+  const openLocationSettings = async () => {
+    try {
+      await Linking.sendIntent('android.settings.LOCATION_SOURCE_SETTINGS');
+    } catch {
+      await Linking.openSettings();
+    }
+  };
+
+  const missingEvidence = describeMissingEvidence(state, locationState);
+  const evidenceIsComplete = missingEvidence === null;
 
   const completeVisit = async () => {
     if (
@@ -278,6 +300,18 @@ export function VisitEvidenceScreen({
             </BaseCard>
           ) : null}
 
+          {locationState.kind === 'services-disabled' ? (
+            <BaseCard accessibilityLiveRegion="assertive" style={styles.errorCard}>
+              <StatusBadge label="Location off" tone="danger" />
+              <Text style={styles.errorText}>{locationState.message}</Text>
+              <PrimaryButton label="Turn on location" onPress={() => void enableLocationServices()} />
+              <PrimaryButton
+                label="Open device settings"
+                onPress={() => void openLocationSettings()}
+              />
+            </BaseCard>
+          ) : null}
+
           {locationState.kind === 'error' ? (
             <BaseCard accessibilityLiveRegion="assertive" style={styles.errorCard}>
               <StatusBadge label="Location failed" tone="danger" />
@@ -340,11 +374,7 @@ export function VisitEvidenceScreen({
 
           {completionState.kind === 'idle' || completionState.kind === 'saving' ? (
             <>
-              {!evidenceIsComplete ? (
-                <Text style={styles.notice}>
-                  Capture the meter photo and the current location to complete this visit.
-                </Text>
-              ) : null}
+              {missingEvidence ? <Text style={styles.notice}>{missingEvidence}</Text> : null}
               <PrimaryButton
                 accessibilityState={{ busy: completionState.kind === 'saving' }}
                 disabled={!evidenceIsComplete || completionState.kind === 'saving'}

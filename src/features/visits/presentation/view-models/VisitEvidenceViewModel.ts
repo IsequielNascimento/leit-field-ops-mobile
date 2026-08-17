@@ -40,6 +40,7 @@ export type VisitLocationState =
   | { kind: 'requesting' }
   | { kind: 'captured'; reading: LocationReading }
   | { kind: 'denied'; canAskAgain: boolean }
+  | { kind: 'services-disabled'; message: string }
   | { kind: 'error'; message: string };
 
 export type VisitCompletionState =
@@ -120,6 +121,11 @@ export async function requestVisitLocation(
     case 'denied':
       return { kind: 'denied', canAskAgain: result.canAskAgain };
     case 'unavailable':
+      // MARK: a disabled service is recoverable with a system toggle, so it
+      // gets its own state instead of the generic error card with a dead retry
+      return result.reason === 'services-disabled'
+        ? { kind: 'services-disabled', message: result.message }
+        : { kind: 'error', message: result.message };
     case 'failed':
       return { kind: 'error', message: result.message };
   }
@@ -127,6 +133,33 @@ export async function requestVisitLocation(
 
 export function resetLocationState(): VisitLocationState {
   return { kind: 'idle' };
+}
+
+/**
+ * Names what is still missing, so a disabled action always says why. A generic
+ * "capture the photo and the location" reads as a dead end once one of the two
+ * is already done.
+ */
+export function describeMissingEvidence(
+  photo: VisitEvidenceState,
+  location: VisitLocationState,
+): string | null {
+  const missingPhoto = photo.kind !== 'captured';
+  const missingLocation = location.kind !== 'captured';
+
+  if (missingPhoto && missingLocation) {
+    return 'Capture the meter photo and record the current location to complete this visit.';
+  }
+
+  if (missingPhoto) {
+    return 'Capture the meter photo to complete this visit.';
+  }
+
+  if (missingLocation) {
+    return 'Record the current location to complete this visit.';
+  }
+
+  return null;
 }
 
 /**

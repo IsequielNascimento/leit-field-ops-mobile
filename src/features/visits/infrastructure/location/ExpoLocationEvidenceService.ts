@@ -6,6 +6,7 @@ import type {
   LocationFixOutcome,
   LocationPermissionGateway,
   LocationPermissionOutcome,
+  LocationServicesActivator,
 } from '../../domain/services/LocationEvidenceService';
 
 const SERVICES_DISABLED = 'Location services are turned off on this device.';
@@ -48,8 +49,22 @@ function toFixOutcome(position: Location.LocationObject): LocationFixOutcome {
 }
 
 export class ExpoLocationEvidenceService
-  implements LocationPermissionGateway, CurrentPositionProvider
+  implements LocationPermissionGateway, CurrentPositionProvider, LocationServicesActivator
 {
+  /**
+   * On Android this raises the system dialog that turns location services back
+   * on without leaving the app. The returned value is the state afterwards, so
+   * a refusal leaves the screen showing the same recoverable card.
+   */
+  async promptToEnableServices(): Promise<boolean> {
+    try {
+      await Location.enableNetworkProviderAsync();
+      return await Location.hasServicesEnabledAsync();
+    } catch {
+      return false;
+    }
+  }
+
   async requestPermission(): Promise<LocationPermissionOutcome> {
     try {
       const current = await Location.getForegroundPermissionsAsync();
@@ -74,7 +89,7 @@ export class ExpoLocationEvidenceService
   async readCurrentPosition(): Promise<LocationFixOutcome> {
     try {
       if (!(await Location.hasServicesEnabledAsync())) {
-        return { kind: 'unavailable', message: SERVICES_DISABLED };
+        return { kind: 'unavailable', message: SERVICES_DISABLED, reason: 'services-disabled' };
       }
 
       const fresh = await resolveWithin(
@@ -96,7 +111,7 @@ export class ExpoLocationEvidenceService
         return toFixOutcome(lastKnown);
       }
 
-      return { kind: 'unavailable', message: NO_FIX };
+      return { kind: 'unavailable', message: NO_FIX, reason: 'no-fix' };
     } catch {
       return { kind: 'failed', message: POSITION_FAILURE };
     }
