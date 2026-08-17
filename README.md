@@ -35,8 +35,12 @@ npm start
 
 ```bash
 npm run typecheck    # tsc --noEmit
+npm run lint         # eslint over the whole project
 npm test             # Node test runner over src/**/*.test.ts, no network, no device
+npm run check        # all three, in that order — the same steps CI runs
 ```
+
+`.github/workflows/ci.yml` runs exactly those three steps on every push and pull request.
 
 ## Framework and main libraries
 
@@ -51,6 +55,7 @@ npm test             # Node test runner over src/**/*.test.ts, no network, no de
 | `expo-location` | latitude/longitude of the visit |
 | `@react-native-community/netinfo` | connectivity detection |
 | `typescript`, `tsx`, `node:test` | typechecking and the test suite |
+| `eslint` + `eslint-config-expo` | linting |
 
 No map SDK is used — see [Map](#map) below.
 
