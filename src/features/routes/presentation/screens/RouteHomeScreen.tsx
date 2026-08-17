@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useSQLiteContext } from 'expo-sqlite';
-import { type RelativePathString, useRouter } from 'expo-router';
+import { type RelativePathString, useFocusEffect, useRouter } from 'expo-router';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { SQLiteRouteRepository } from '../../data/repositories/SQLiteRouteRepository';
+import { SQLiteVisitRepository } from '@/features/visits/data/repositories/SQLiteVisitRepository';
 import { BaseCard, PrimaryButton, SectionLabel } from '@/shared/presentation/components';
 import { tokens } from '@/shared/presentation/theme';
 import { RoutePointCard } from '../components/RoutePointCard';
@@ -18,16 +19,19 @@ export function RouteHomeScreen() {
   const database = useSQLiteContext();
   const router = useRouter();
   const routeRepository = useMemo(() => new SQLiteRouteRepository(database), [database]);
+  const visitRepository = useMemo(() => new SQLiteVisitRepository(database), [database]);
   const [state, setState] = useState<RouteHomeState>({ kind: 'loading' });
 
   const load = useCallback(async () => {
     setState({ kind: 'loading' });
-    setState(await loadRouteHome(routeRepository));
-  }, [routeRepository]);
+    setState(await loadRouteHome(routeRepository, visitRepository));
+  }, [routeRepository, visitRepository]);
 
-  useEffect(() => {
-    void load();
-  }, [load]);
+  useFocusEffect(
+    useCallback(() => {
+      void load();
+    }, [load]),
+  );
 
   if (state.kind === 'loading') {
     return <FeedbackScreen label="Loading local route…" />;
@@ -55,7 +59,7 @@ export function RouteHomeScreen() {
     );
   }
 
-  const { route } = state;
+  const { latestVisits, route } = state;
   const summary = getRouteHomeSummary(route);
 
   return (
@@ -90,6 +94,7 @@ export function RouteHomeScreen() {
               onPress={() => {
                 router.push(`./points/${point.id}` as RelativePathString);
               }}
+              latestVisit={latestVisits.get(point.id) ?? null}
               point={point}
             />
           ))}

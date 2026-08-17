@@ -3,6 +3,8 @@ import test from 'node:test';
 
 import type { RouteAggregate } from '../../domain/entities/Route';
 import type { RouteRepository } from '../../domain/repositories/RouteRepository';
+import type { Visit } from '@/features/visits/domain/entities/Visit';
+import type { VisitRepository } from '@/features/visits/domain/repositories/VisitRepository';
 import {
   getRouteHomeSummary,
   loadRouteHome,
@@ -43,6 +45,18 @@ function createRepository(getRouteById: RouteRepository['getRouteById']): RouteR
   };
 }
 
+function createVisitRepository(
+  getVisitsByPointId: VisitRepository['getVisitsByPointId'] = async () => [],
+): VisitRepository {
+  return {
+    saveVisit: async () => undefined,
+    getVisitById: async () => null,
+    getVisitsByPointId,
+    getVisitsBySyncStatus: async () => [],
+    updateSyncStatus: async () => undefined,
+  };
+}
+
 test('loads the official route from the repository and preserves its ordered points', async () => {
   const route = createRoute();
   const requestedIds: string[] = [];
@@ -51,7 +65,7 @@ test('loads the official route from the repository and preserves its ordered poi
     return route;
   });
 
-  const state = await loadRouteHome(repository);
+  const state = await loadRouteHome(repository, createVisitRepository());
 
   assert.deepEqual(requestedIds, [OFFICIAL_ROUTE_ID]);
   assert.equal(state.kind, 'loaded');
@@ -62,8 +76,12 @@ test('loads the official route from the repository and preserves its ordered poi
 });
 
 test('returns empty state when local storage has no route or points', async () => {
-  const missingRoute = await loadRouteHome(createRepository(async () => null));
-  const emptyRoute = await loadRouteHome(createRepository(async () => createRoute(0)));
+  const visitRepository = createVisitRepository();
+  const missingRoute = await loadRouteHome(createRepository(async () => null), visitRepository);
+  const emptyRoute = await loadRouteHome(
+    createRepository(async () => createRoute(0)),
+    visitRepository,
+  );
 
   assert.deepEqual(missingRoute, { kind: 'empty' });
   assert.deepEqual(emptyRoute, { kind: 'empty' });
@@ -80,12 +98,55 @@ test('returns an error state when the local repository fails and succeeds on ret
     return createRoute();
   });
 
-  const failedState = await loadRouteHome(repository);
-  const retriedState = await loadRouteHome(repository);
+  const visitRepository = createVisitRepository();
+  const failedState = await loadRouteHome(repository, visitRepository);
+  const retriedState = await loadRouteHome(repository, visitRepository);
 
   assert.deepEqual(failedState, { kind: 'error', message: 'SQLite unavailable' });
   assert.equal(retriedState.kind, 'loaded');
   assert.equal(attempts, 2);
+});
+
+test('includes only the latest persisted visit for each route point', async () => {
+  const visits: Visit[] = [
+    {
+      id: 'older',
+      pointId: 1,
+      installationCode: 'INSTALL-1',
+      meterNumber: 'METER-1',
+      previousReading: 0,
+      currentReading: 10,
+      photoUri: 'file:///older.jpg',
+      latitude: -3.7,
+      longitude: -38.5,
+      capturedAt: '2026-08-15T08:00:00.000Z',
+      syncStatus: 'pending',
+    },
+    {
+      id: 'newer',
+      pointId: 1,
+      installationCode: 'INSTALL-1',
+      meterNumber: 'METER-1',
+      previousReading: 0,
+      currentReading: 11,
+      photoUri: 'file:///newer.jpg',
+      latitude: -3.7,
+      longitude: -38.5,
+      capturedAt: '2026-08-16T08:00:00.000Z',
+      syncStatus: 'pending',
+    },
+  ];
+
+  const state = await loadRouteHome(
+    createRepository(async () => createRoute(2)),
+    createVisitRepository(async (pointId) => (pointId === 1 ? visits : [])),
+  );
+
+  assert.equal(state.kind, 'loaded');
+  if (state.kind === 'loaded') {
+    assert.equal(state.latestVisits.get(1)?.id, 'newer');
+    assert.equal(state.latestVisits.has(2), false);
+  }
 });
 
 test('derives the route point count from persisted route data', () => {
