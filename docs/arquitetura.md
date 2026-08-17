@@ -62,6 +62,16 @@ vez de abortar. Uma falha de processamento custa tamanho de imagem, nunca a evid
 de conclusão. Falha do armazenamento durável é o único caso que ainda reporta erro, porque nesse
 ponto não existe arquivo que fosse sobreviver à limpeza do cache.
 
+### Estabilidade do handle
+
+`SQLiteProvider` mantém `onInit` na lista de dependências do seu efeito e fecha o banco no cleanup.
+Uma arrow function inline ali é referência nova a cada render, então o provider fechava e reabria o
+banco a cada re-render da árvore. O teardown do efeito antigo e o setup do novo disputam o mesmo
+handle nativo, e o aplicativo podia ficar segurando uma conexão já fechada, o que aparecia como
+`NativeDatabase.prepareAsync` rejeitando com `NullPointerException` em toda consulta até o processo
+reiniciar. Por isso o inicializador é uma função de módulo, em `initializeDatabase.ts`, com
+identidade estável para sempre.
+
 ## Localização offline
 
 Offline é justamente quando obter posição é mais difícil. Sem rede o aparelho perde o

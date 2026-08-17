@@ -1,8 +1,7 @@
 import React from 'react';
 import { SQLiteProvider } from 'expo-sqlite';
 
-import { seedOfficialRoute } from '../../../features/routes/data/seed/seedOfficialRoute';
-import { runMigrations } from './migrations';
+import { initializeDatabase } from './initializeDatabase';
 
 export const DATABASE_NAME = 'leit_field_ops.db';
 
@@ -14,17 +13,13 @@ interface DatabaseProviderProps {
  * Application-level wrapper around Expo's SQLiteProvider. Opens the single
  * durable application database and runs migrations before children mount,
  * so routed screens never observe a database that is still initializing.
+ *
+ * `onInit` must stay referentially stable: the provider treats it as an effect
+ * dependency and closes the database when it changes. See `initializeDatabase`.
  */
 export function DatabaseProvider({ children }: DatabaseProviderProps) {
   return (
-    <SQLiteProvider
-      databaseName={DATABASE_NAME}
-      onInit={async (db) => {
-        await runMigrations(db);
-        await seedOfficialRoute(db);
-      }}
-      useSuspense={false}
-    >
+    <SQLiteProvider databaseName={DATABASE_NAME} onInit={initializeDatabase} useSuspense={false}>
       {children}
     </SQLiteProvider>
   );
