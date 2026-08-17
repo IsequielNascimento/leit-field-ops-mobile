@@ -1,11 +1,14 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useSQLiteContext } from 'expo-sqlite';
+import { useFocusEffect } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { SQLiteRouteRepository } from '../../data/repositories/SQLiteRouteRepository';
+import { ConnectivityBanner } from '@/features/app-shell/presentation/components/ConnectivityBanner';
+import { SQLiteVisitRepository } from '@/features/visits/data/repositories/SQLiteVisitRepository';
+import { deriveVisitDisplayStatus } from '@/features/visits/domain/use-cases/DeriveVisitDisplayStatus';
 import { BaseCard, PrimaryButton, SectionLabel, StatusBadge } from '@/shared/presentation/components';
-import type { StatusTone } from '@/shared/presentation/theme';
 import { tokens } from '@/shared/presentation/theme';
 import { validateCurrentReading } from '@/features/visits/domain/validation/validateCurrentReading';
 import {
@@ -20,36 +23,24 @@ interface PointDetailsScreenProps {
   pointId: PointIdParameter;
 }
 
-function getStatusTone(status: string): StatusTone {
-  switch (status.toLowerCase()) {
-    case 'completed':
-    case 'synced':
-      return 'success';
-    case 'pending':
-    case 'assigned':
-      return 'warning';
-    case 'error':
-      return 'danger';
-    default:
-      return 'neutral';
-  }
-}
-
 export function PointDetailsScreen({ onBack, onStartVisit, pointId }: PointDetailsScreenProps) {
   const database = useSQLiteContext();
   const routeRepository = useMemo(() => new SQLiteRouteRepository(database), [database]);
+  const visitRepository = useMemo(() => new SQLiteVisitRepository(database), [database]);
   const [state, setState] = useState<PointDetailsState>({ kind: 'loading' });
   const [currentReading, setCurrentReading] = useState('');
   const [readingError, setReadingError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setState({ kind: 'loading' });
-    setState(await loadPointDetails(routeRepository, pointId));
-  }, [pointId, routeRepository]);
+    setState(await loadPointDetails(routeRepository, visitRepository, pointId));
+  }, [pointId, routeRepository, visitRepository]);
 
-  useEffect(() => {
-    void load();
-  }, [load]);
+  useFocusEffect(
+    useCallback(() => {
+      void load();
+    }, [load]),
+  );
 
   const handleCurrentReadingChange = (value: string) => {
     setCurrentReading(value);
@@ -109,7 +100,8 @@ export function PointDetailsScreen({ onBack, onStartVisit, pointId }: PointDetai
     );
   }
 
-  const { point } = state;
+  const { latestVisit, point } = state;
+  const displayStatus = deriveVisitDisplayStatus(point.status, latestVisit);
 
   return (
     <SafeAreaView style={styles.screen}>
@@ -129,9 +121,11 @@ export function PointDetailsScreen({ onBack, onStartVisit, pointId }: PointDetai
               <SectionLabel style={styles.appBarLabel}>Point details</SectionLabel>
               <Text style={styles.installation}>{point.installationCode}</Text>
             </View>
-            <StatusBadge label={point.status} tone={getStatusTone(point.status)} />
+            <StatusBadge label={displayStatus.label} tone={displayStatus.tone} />
           </View>
         </View>
+
+        <ConnectivityBanner />
 
         <BaseCard style={styles.contextCard}>
           <DetailRow label="Installation" value={point.installationCode} />
@@ -140,7 +134,7 @@ export function PointDetailsScreen({ onBack, onStartVisit, pointId }: PointDetai
           <DetailRow label="Previous reading" value={String(point.previousReading)} />
           <View style={styles.detailRow}>
             <SectionLabel>Status</SectionLabel>
-            <StatusBadge label={point.status} tone={getStatusTone(point.status)} />
+            <StatusBadge label={displayStatus.label} tone={displayStatus.tone} />
           </View>
         </BaseCard>
 

@@ -1,12 +1,18 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSQLiteContext } from 'expo-sqlite';
-import { type RelativePathString, useRouter } from 'expo-router';
+import { type RelativePathString, useFocusEffect, useRouter } from 'expo-router';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { SQLiteRouteRepository } from '../../data/repositories/SQLiteRouteRepository';
+import { ConnectivityBanner } from '@/features/app-shell/presentation/components/ConnectivityBanner';
+import { SQLiteVisitRepository } from '@/features/visits/data/repositories/SQLiteVisitRepository';
+import type { Visit, VisitSyncStatus } from '@/features/visits/domain/entities/Visit';
+import { VisitSyncPanel } from '@/features/visits/presentation/components/VisitSyncPanel';
+import { useVisitSync } from '@/features/visits/presentation/VisitSyncProvider';
 import { BaseCard, PrimaryButton, SectionLabel } from '@/shared/presentation/components';
 import { tokens } from '@/shared/presentation/theme';
+import { RouteMapCard } from '../components/RouteMapCard';
 import { RoutePointCard } from '../components/RoutePointCard';
 import {
   getRouteHomeSummary,
@@ -18,16 +24,51 @@ export function RouteHomeScreen() {
   const database = useSQLiteContext();
   const router = useRouter();
   const routeRepository = useMemo(() => new SQLiteRouteRepository(database), [database]);
+  const visitRepository = useMemo(() => new SQLiteVisitRepository(database), [database]);
+  const visitSync = useVisitSync();
   const [state, setState] = useState<RouteHomeState>({ kind: 'loading' });
+
+  const { refresh: refreshSyncSummary, subscribeToVisitChanges } = visitSync;
 
   const load = useCallback(async () => {
     setState({ kind: 'loading' });
-    setState(await loadRouteHome(routeRepository));
-  }, [routeRepository]);
+    setState(await loadRouteHome(routeRepository, visitRepository));
+    await refreshSyncSummary();
+  }, [refreshSyncSummary, routeRepository, visitRepository]);
 
-  useEffect(() => {
-    void load();
-  }, [load]);
+  const applyVisitChange = useCallback((visit: Visit, _previousStatus: VisitSyncStatus) => {
+    setState((current) => {
+      if (current.kind !== 'loaded') {
+        return current;
+      }
+
+      const latest = current.latestVisits.get(visit.pointId);
+
+      if (latest && latest.id !== visit.id) {
+        return current;
+      }
+
+      const latestVisits = new Map(current.latestVisits);
+      latestVisits.set(visit.pointId, visit);
+
+      return { ...current, latestVisits };
+    });
+  }, []);
+
+  useEffect(() => subscribeToVisitChanges(applyVisitChange), [applyVisitChange, subscribeToVisitChanges]);
+
+  const openPoint = useCallback(
+    (pointId: number) => {
+      router.push(`./points/${pointId}` as RelativePathString);
+    },
+    [router],
+  );
+
+  useFocusEffect(
+    useCallback(() => {
+      void load();
+    }, [load]),
+  );
 
   if (state.kind === 'loading') {
     return <FeedbackScreen label="Loading local route…" />;
@@ -55,7 +96,7 @@ export function RouteHomeScreen() {
     );
   }
 
-  const { route } = state;
+  const { latestVisits, route } = state;
   const summary = getRouteHomeSummary(route);
 
   return (
@@ -66,6 +107,8 @@ export function RouteHomeScreen() {
           <Text style={styles.routeName}>{route.name}</Text>
           <Text style={styles.routeId}>{route.id}</Text>
         </View>
+
+        <ConnectivityBanner />
 
         <BaseCard style={styles.summary}>
           <View>
@@ -78,6 +121,18 @@ export function RouteHomeScreen() {
           </View>
         </BaseCard>
 
+        <View style={styles.mapSection}>
+          <RouteMapCard onSelectPoint={(point) => openPoint(point.id)} points={route.points} />
+        </View>
+
+        <View style={styles.syncPanel}>
+          <VisitSyncPanel
+            onSync={visitSync.sync}
+            state={visitSync.state}
+            summary={visitSync.summary}
+          />
+        </View>
+
         <View style={styles.listHeader}>
           <SectionLabel>Service points</SectionLabel>
           <Text style={styles.listCount}>{summary.pointCount} total</Text>
@@ -87,9 +142,8 @@ export function RouteHomeScreen() {
           {route.points.map((point) => (
             <RoutePointCard
               key={point.id}
-              onPress={() => {
-                router.push(`./points/${point.id}` as RelativePathString);
-              }}
+              onPress={() => openPoint(point.id)}
+              latestVisit={latestVisits.get(point.id) ?? null}
               point={point}
             />
           ))}
@@ -162,6 +216,9 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: tokens.spacing.lg,
   },
+  mapSection: {
+    paddingHorizontal: tokens.spacing.lg,
+  },
   retry: {
     marginTop: tokens.spacing.md,
   },
@@ -199,5 +256,8 @@ const styles = StyleSheet.create({
   summaryValue: {
     ...tokens.typography.title,
     color: tokens.colors.text,
+  },
+  syncPanel: {
+    paddingHorizontal: tokens.spacing.lg,
   },
 });

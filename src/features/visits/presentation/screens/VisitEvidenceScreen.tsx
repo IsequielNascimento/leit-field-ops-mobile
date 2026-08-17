@@ -15,30 +15,52 @@ import type {
   CameraPermissionGateway,
   DurablePhotoStorage,
 } from '../../domain/services/CameraEvidenceService';
+import type {
+  CurrentPositionProvider,
+  LocationPermissionGateway,
+  LocationReading,
+} from '../../domain/services/LocationEvidenceService';
 import { ExpoCameraPreview } from '../../infrastructure/camera/ExpoCameraPreview';
-import type { VisitEvidenceContext, VisitEvidenceState } from '../view-models/VisitEvidenceViewModel';
+import type {
+  VisitCompletionState,
+  VisitEvidenceContext,
+  VisitEvidenceState,
+  VisitLocationState,
+} from '../view-models/VisitEvidenceViewModel';
 import {
   handleCameraOutcome,
   requestCamera,
+  requestVisitLocation,
+  resetCompletionState,
   resetEvidenceState,
+  resetLocationState,
 } from '../view-models/VisitEvidenceViewModel';
+import { ConnectivityBanner } from '@/features/app-shell/presentation/components/ConnectivityBanner';
 import { BaseCard, PrimaryButton, SectionLabel, StatusBadge } from '@/shared/presentation/components';
 import { tokens } from '@/shared/presentation/theme';
 
 interface VisitEvidenceScreenProps {
   cameraService: CameraPermissionGateway & DurablePhotoStorage;
   context: VisitEvidenceContext | null;
+  locationService: LocationPermissionGateway & CurrentPositionProvider;
   onBack: () => void;
+  onCompleteVisit: (photoUri: string, reading: LocationReading) => Promise<VisitCompletionState>;
+  onLocationReady?: (reading: LocationReading) => void;
   onPhotoReady?: (photoUri: string) => void;
 }
 
 export function VisitEvidenceScreen({
   cameraService,
   context,
+  locationService,
   onBack,
+  onCompleteVisit,
+  onLocationReady,
   onPhotoReady,
 }: VisitEvidenceScreenProps) {
   const [state, setState] = useState<VisitEvidenceState>({ kind: 'ready' });
+  const [locationState, setLocationState] = useState<VisitLocationState>({ kind: 'idle' });
+  const [completionState, setCompletionState] = useState<VisitCompletionState>({ kind: 'idle' });
 
   if (!context) {
     return (
@@ -65,6 +87,37 @@ export function VisitEvidenceScreen({
 
     if (nextState.kind === 'captured') {
       onPhotoReady?.(nextState.photoUri);
+    }
+  };
+
+  const captureLocation = async () => {
+    setLocationState({ kind: 'requesting' });
+
+    const nextState = await requestVisitLocation(locationService, locationService);
+    setLocationState(nextState);
+
+    if (nextState.kind === 'captured') {
+      onLocationReady?.(nextState.reading);
+    }
+  };
+
+  const evidenceIsComplete = state.kind === 'captured' && locationState.kind === 'captured';
+
+  const completeVisit = async () => {
+    if (
+      completionState.kind === 'saving' ||
+      state.kind !== 'captured' ||
+      locationState.kind !== 'captured'
+    ) {
+      return;
+    }
+
+    setCompletionState({ kind: 'saving' });
+    const result = await onCompleteVisit(state.photoUri, locationState.reading);
+    setCompletionState(result);
+
+    if (result.kind === 'saved') {
+      onBack();
     }
   };
 
@@ -99,6 +152,8 @@ export function VisitEvidenceScreen({
           <SectionLabel style={styles.inverseLabel}>Visit evidence</SectionLabel>
           <Text style={styles.title}>Capture meter photo</Text>
         </View>
+
+        <ConnectivityBanner />
 
         <BaseCard style={styles.contextCard}>
           <ContextRow label="Point" value={String(context.pointId)} />
@@ -177,9 +232,133 @@ export function VisitEvidenceScreen({
             />
           ) : null}
         </View>
+
+        <View style={styles.evidenceArea}>
+          <SectionLabel>Location evidence</SectionLabel>
+          <Text style={styles.description}>
+            Record where this visit was carried out. The coordinates come from the device and stay
+            stored on it.
+          </Text>
+
+          {locationState.kind === 'captured' ? (
+            <BaseCard accessibilityLabel="Location evidence captured" style={styles.successCard}>
+              <View style={styles.statusRow}>
+                <StatusBadge label="Location recorded" tone="success" />
+                <Text accessibilityLiveRegion="polite" style={styles.successText}>
+                  Coordinates reported by this device.
+                </Text>
+              </View>
+              <ContextRow label="Latitude" value={formatCoordinate(locationState.reading.latitude)} />
+              <ContextRow label="Longitude" value={formatCoordinate(locationState.reading.longitude)} />
+              <ContextRow label="Captured at" value={formatCaptureTime(locationState.reading.capturedAt)} />
+            </BaseCard>
+          ) : null}
+
+          {locationState.kind === 'denied' ? (
+            <BaseCard accessibilityLiveRegion="assertive" style={styles.errorCard}>
+              <StatusBadge label="Location blocked" tone="danger" />
+              <Text style={styles.errorText}>
+                Location permission is required to record where the visit happened.
+              </Text>
+              {locationState.canAskAgain ? (
+                <PrimaryButton
+                  label="Request location permission"
+                  onPress={() => void captureLocation()}
+                />
+              ) : (
+                <PrimaryButton label="Open app settings" onPress={() => void Linking.openSettings()} />
+              )}
+            </BaseCard>
+          ) : null}
+
+          {locationState.kind === 'error' ? (
+            <BaseCard accessibilityLiveRegion="assertive" style={styles.errorCard}>
+              <StatusBadge label="Location failed" tone="danger" />
+              <Text style={styles.errorText}>{locationState.message}</Text>
+              <PrimaryButton
+                label="Try location again"
+                onPress={() => {
+                  setLocationState(resetLocationState());
+                  void captureLocation();
+                }}
+              />
+            </BaseCard>
+          ) : null}
+
+          {locationState.kind === 'idle' || locationState.kind === 'requesting' ? (
+            <PrimaryButton
+              accessibilityState={{ busy: locationState.kind === 'requesting' }}
+              disabled={locationState.kind === 'requesting'}
+              label={
+                locationState.kind === 'requesting'
+                  ? 'Reading current location…'
+                  : 'Record current location'
+              }
+              onPress={() => void captureLocation()}
+            />
+          ) : null}
+        </View>
+
+        <View style={styles.evidenceArea}>
+          <SectionLabel>Complete visit</SectionLabel>
+          <Text style={styles.description}>
+            Saving stores the reading, photo and location on this device. No connection is needed.
+          </Text>
+
+          {completionState.kind === 'saved' ? (
+            <BaseCard accessibilityLabel="Visit saved on this device" style={styles.successCard}>
+              <View style={styles.statusRow}>
+                <StatusBadge label="Visited · pending sync" tone="warning" />
+                <Text accessibilityLiveRegion="polite" style={styles.successText}>
+                  Visit saved on this device and waiting to be synchronized.
+                </Text>
+              </View>
+              <PrimaryButton label="Back to point" onPress={onBack} />
+            </BaseCard>
+          ) : null}
+
+          {completionState.kind === 'error' ? (
+            <BaseCard accessibilityLiveRegion="assertive" style={styles.errorCard}>
+              <StatusBadge label="Visit not saved" tone="danger" />
+              <Text style={styles.errorText}>{completionState.message}</Text>
+              <PrimaryButton
+                label="Try saving again"
+                onPress={() => {
+                  setCompletionState(resetCompletionState());
+                  void completeVisit();
+                }}
+              />
+            </BaseCard>
+          ) : null}
+
+          {completionState.kind === 'idle' || completionState.kind === 'saving' ? (
+            <>
+              {!evidenceIsComplete ? (
+                <Text style={styles.notice}>
+                  Capture the meter photo and the current location to complete this visit.
+                </Text>
+              ) : null}
+              <PrimaryButton
+                accessibilityState={{ busy: completionState.kind === 'saving' }}
+                disabled={!evidenceIsComplete || completionState.kind === 'saving'}
+                label={completionState.kind === 'saving' ? 'Saving visit…' : 'Complete visit'}
+                onPress={() => void completeVisit()}
+              />
+            </>
+          ) : null}
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
+}
+
+function formatCoordinate(value: number): string {
+  return value.toFixed(6);
+}
+
+function formatCaptureTime(capturedAt: string): string {
+  const captureTime = new Date(capturedAt);
+  return Number.isFinite(captureTime.getTime()) ? captureTime.toLocaleString() : capturedAt;
 }
 
 interface ContextRowProps {

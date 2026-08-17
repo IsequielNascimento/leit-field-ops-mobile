@@ -3,8 +3,20 @@ import type {
   CameraPermissionGateway,
   DurablePhotoStorage,
 } from '../../domain/services/CameraEvidenceService';
+import type {
+  CurrentPositionProvider,
+  LocationPermissionGateway,
+  LocationReading,
+} from '../../domain/services/LocationEvidenceService';
+import { captureVisitLocation } from '../../domain/use-cases/CaptureVisitLocation';
+import { completeVisit } from '../../domain/use-cases/CompleteVisit';
 import { prepareVisitPhoto } from '../../domain/use-cases/PrepareVisitPhoto';
 import { validateCurrentReading } from '../../domain/validation/validateCurrentReading';
+import type { VisitRepository } from '../../domain/repositories/VisitRepository';
+import type { RouteRepository } from '@/features/routes/domain/repositories/RouteRepository';
+
+const POINT_LOOKUP_FAILURE = 'The point could not be read from this device.';
+const POINT_MISSING = 'This point is no longer available in local storage.';
 
 export type VisitEvidenceParameter = string | string[] | undefined;
 
@@ -20,6 +32,19 @@ export type VisitEvidenceState =
   | { kind: 'saving' }
   | { kind: 'captured'; photoUri: string }
   | { kind: 'denied'; canAskAgain: boolean }
+  | { kind: 'error'; message: string };
+
+export type VisitLocationState =
+  | { kind: 'idle' }
+  | { kind: 'requesting' }
+  | { kind: 'captured'; reading: LocationReading }
+  | { kind: 'denied'; canAskAgain: boolean }
+  | { kind: 'error'; message: string };
+
+export type VisitCompletionState =
+  | { kind: 'idle' }
+  | { kind: 'saving' }
+  | { kind: 'saved' }
   | { kind: 'error'; message: string };
 
 export function parseVisitEvidenceContext(
@@ -79,4 +104,73 @@ export async function handleCameraOutcome(
 
 export function resetEvidenceState(): VisitEvidenceState {
   return { kind: 'ready' };
+}
+
+export async function requestVisitLocation(
+  permissions: LocationPermissionGateway,
+  positions: CurrentPositionProvider,
+): Promise<VisitLocationState> {
+  const result = await captureVisitLocation(permissions, positions);
+
+  switch (result.kind) {
+    case 'captured':
+      return { kind: 'captured', reading: result.reading };
+    case 'denied':
+      return { kind: 'denied', canAskAgain: result.canAskAgain };
+    case 'unavailable':
+    case 'failed':
+      return { kind: 'error', message: result.message };
+  }
+}
+
+export function resetLocationState(): VisitLocationState {
+  return { kind: 'idle' };
+}
+
+/**
+ * Finishes the visit offline. The point is re-read from local storage so the
+ * saved record carries the persisted installation, meter and previous reading
+ * rather than values carried through navigation.
+ */
+export async function submitCompletedVisit(
+  routeRepository: RouteRepository,
+  visitRepository: VisitRepository,
+  context: VisitEvidenceContext,
+  photoUri: string,
+  location: LocationReading,
+): Promise<VisitCompletionState> {
+  let point;
+
+  try {
+    point = await routeRepository.getPointById(context.pointId);
+  } catch (error) {
+    return {
+      kind: 'error',
+      message: error instanceof Error ? error.message : POINT_LOOKUP_FAILURE,
+    };
+  }
+
+  if (!point) {
+    return { kind: 'error', message: POINT_MISSING };
+  }
+
+  const result = await completeVisit(visitRepository, {
+    pointId: point.id,
+    installationCode: point.installationCode,
+    meterNumber: point.meterNumber,
+    previousReading: point.previousReading,
+    currentReading: context.currentReading,
+    photoUri,
+    latitude: location.latitude,
+    longitude: location.longitude,
+    capturedAt: location.capturedAt,
+  });
+
+  return result.kind === 'completed'
+    ? { kind: 'saved' }
+    : { kind: 'error', message: result.message };
+}
+
+export function resetCompletionState(): VisitCompletionState {
+  return { kind: 'idle' };
 }

@@ -1,31 +1,20 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import type { RoutePoint } from '../../domain/entities/RoutePoint';
+import type { Visit } from '@/features/visits/domain/entities/Visit';
+import { deriveVisitDisplayStatus } from '@/features/visits/domain/use-cases/DeriveVisitDisplayStatus';
 import { BaseCard, SectionLabel, StatusBadge } from '@/shared/presentation/components';
-import type { StatusTone } from '@/shared/presentation/theme';
 import { tokens } from '@/shared/presentation/theme';
 
 interface RoutePointCardProps {
+  latestVisit: Visit | null;
   onPress: () => void;
   point: RoutePoint;
 }
 
-function getStatusTone(status: string): StatusTone {
-  switch (status.toLowerCase()) {
-    case 'completed':
-    case 'synced':
-      return 'success';
-    case 'pending':
-    case 'assigned':
-      return 'warning';
-    case 'error':
-      return 'danger';
-    default:
-      return 'neutral';
-  }
-}
+export function RoutePointCard({ latestVisit, onPress, point }: RoutePointCardProps) {
+  const displayStatus = deriveVisitDisplayStatus(point.status, latestVisit);
 
-export function RoutePointCard({ onPress, point }: RoutePointCardProps) {
   return (
     <Pressable
       accessibilityHint="Opens the locally saved point details"
@@ -44,7 +33,11 @@ export function RoutePointCard({ onPress, point }: RoutePointCardProps) {
           <View style={styles.headerContent}>
             <SectionLabel>Installation</SectionLabel>
             <Text style={styles.installation}>{point.installationCode}</Text>
-            <StatusBadge label={point.status} style={styles.status} tone={getStatusTone(point.status)} />
+            <StatusBadge
+              label={displayStatus.label}
+              style={styles.status}
+              tone={displayStatus.tone}
+            />
           </View>
         </View>
 
