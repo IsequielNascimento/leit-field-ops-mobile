@@ -118,3 +118,28 @@ so no domain rule is hidden behind a mock. It covers the offline path to `pendin
 reopen, an invalid reading never producing a record, the `pending -> syncing -> synced` walk, a
 refused send settling in a retryable `error` that keeps its evidence, and a second trigger during
 a run being skipped instead of duplicating work.
+
+## Background synchronization
+
+`features/visits/infrastructure/background/backgroundVisitSync.ts` registers a task that calls the
+same `VisitSyncRunner` and `synchronizePendingVisits` the interface uses. No rule is duplicated:
+the eligible-record selection, the persisted state machine and the single-flight guard all come
+from the same use case. The only difference is that the background process has no React tree, so
+it opens the application database itself — migrations are idempotent, so that can never rebuild
+or lose data.
+
+Operating-system limitations, stated plainly because they are not negotiable:
+
+- Android runs this through WorkManager. `minimumInterval` is the floor of a scheduling window,
+  never a guarantee; the system decides the actual moment based on battery, Doze and app standby
+  buckets.
+- A force-stopped app, a device where the user restricted background activity, or an
+  aggressive vendor battery manager will simply never run it.
+- Registration is best effort and swallows its own failures.
+
+The task is therefore an optimization, never a mechanism the product depends on. Every visit still
+reaches `synced` through the manual action or the reconnect attempt, and the interface promises
+nothing about background execution. A run that the guard skips is reported to the scheduler as a
+success, and only a local storage failure is reported as failed, so records refused by the gateway
+do not cause the task to be throttled — they settle in `error` and remain eligible for the next
+attempt.
