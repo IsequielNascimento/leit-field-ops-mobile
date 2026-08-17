@@ -106,3 +106,15 @@ Two levels are covered:
   slice of `SQLiteDatabase` the app uses. That is what makes migration ordering, the widened
   `sync_status` check constraint, the seed's idempotency at SQL level, and the foreign key from
   a visit to its route point provable without an emulator.
+
+### Main visit flow integration test
+
+`features/visits/presentation/mainVisitFlow.test.ts` drives one point end to end through the
+screens' own view-model functions — point details, reading validation, the evidence context,
+camera outcome handling, location capture, visit completion, and the sync panel's state — against
+the real SQLite schema and the real repositories. The only doubles are the device boundaries
+(camera permission and durable storage, location permission and position, and the send gateway),
+so no domain rule is hidden behind a mock. It covers the offline path to `pending` surviving a
+reopen, an invalid reading never producing a record, the `pending -> syncing -> synced` walk, a
+refused send settling in a retryable `error` that keeps its evidence, and a second trigger during
+a run being skipped instead of duplicating work.
