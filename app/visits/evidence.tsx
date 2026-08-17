@@ -5,6 +5,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SQLiteRouteRepository } from '@/features/routes/data/repositories/SQLiteRouteRepository';
 import { SQLiteVisitRepository } from '@/features/visits/data/repositories/SQLiteVisitRepository';
 import { ExpoCameraEvidenceService } from '@/features/visits/infrastructure/camera/ExpoCameraEvidenceService';
+import { ExpoVisitPhotoProcessor } from '@/features/visits/infrastructure/imaging/ExpoVisitPhotoProcessor';
 import { ExpoLocationEvidenceService } from '@/features/visits/infrastructure/location/ExpoLocationEvidenceService';
 import { VisitEvidenceScreen } from '@/features/visits/presentation/screens/VisitEvidenceScreen';
 import {
@@ -21,6 +22,7 @@ export default function VisitEvidenceRoute() {
   }>();
   const cameraService = useMemo(() => new ExpoCameraEvidenceService(), []);
   const locationService = useMemo(() => new ExpoLocationEvidenceService(), []);
+  const photoProcessor = useMemo(() => new ExpoVisitPhotoProcessor(), []);
   const routeRepository = useMemo(() => new SQLiteRouteRepository(database), [database]);
   const visitRepository = useMemo(() => new SQLiteVisitRepository(database), [database]);
   const context = parseVisitEvidenceContext(pointId, currentReading);
@@ -38,6 +40,7 @@ export default function VisitEvidenceRoute() {
 
         return submitCompletedVisit(routeRepository, visitRepository, context, photoUri, reading);
       }}
+      photoProcessor={photoProcessor}
     />
   );
 }

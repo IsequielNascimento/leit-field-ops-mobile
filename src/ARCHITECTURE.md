@@ -42,3 +42,39 @@ persisted `order` and joins each consecutive pair. Each segment is rendered as a
 sized to the straight-line distance between its two markers and rotated with
 `Math.atan2(dy, dx)`, the same no-extra-dependency approach the tile/marker layer uses, so no
 SVG or drawing library is added for it.
+
+## Visit photo compression
+
+Meter photos are captured at full sensor resolution and are then resized and re-encoded
+before anything durable is written. The policy is a single explicit constant,
+`VISIT_PHOTO_IMAGE_POLICY` in `features/visits/domain/services/ImageProcessingService.ts`:
+
+- **Longest edge: 1600 px.** A 12 MP capture (4000 x 3000) becomes 1600 x 1200, about 1.9 MP.
+  A meter register that fills a modest part of the frame still keeps several pixels per digit
+  stroke, which is what makes the number readable to a reviewer and to future OCR. Smaller
+  targets such as 1024 px start smearing the meter serial and the small printed text next to it.
+- **JPEG quality: 0.7.** Comfortably above the level where 8x8 block artefacts begin closing
+  thin digit strokes, while cutting a typical capture from several megabytes to a few hundred
+  kilobytes. That ratio matters because a full route is captured offline and every photo sits
+  on the device until synchronization happens.
+- **Never upscale.** `resolveEvidenceDownscale` returns `null` when the capture already fits the
+  policy or when the reported dimensions are unusable, so a small image is only re-encoded.
+- **Library:** `expo-image-manipulator`, wrapped by `ExpoVisitPhotoProcessor` in
+  `features/visits/infrastructure/imaging`.
+
+The boundary follows the direction used everywhere else: `VisitPhotoProcessor` is declared in
+Domain, implemented in Infrastructure, and injected into `prepareVisitPhoto` next to
+`DurablePhotoStorage`. Compression is an explicit step in the use case rather than a hidden
+detail of durable storage, so the ordering is visible and unit tested.
+
+### Ordering and failure fallback
+
+`expo-image-manipulator` writes its result to the cache directory, so the processed file is
+still temporary. The pipeline is therefore **capture (temporary) -> compress (temporary) ->
+`preserveCapture` (documents/`visit-evidence`)**, and the visit record only ever receives the
+final durable URI.
+
+If compression throws or returns a blank URI, `prepareVisitPhoto` stores the untouched original
+capture instead of aborting. A processing failure costs image size, never the evidence or the
+visit-completion flow. Durable storage failing is the only case that still reports `failed`,
+because at that point there is no file that would survive the cache being cleared.
