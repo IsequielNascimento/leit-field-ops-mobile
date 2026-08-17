@@ -3,6 +3,7 @@ import type {
   CameraPermissionGateway,
   DurablePhotoStorage,
 } from '../../domain/services/CameraEvidenceService';
+import type { VisitPhotoProcessor } from '../../domain/services/ImageProcessingService';
 import type {
   CurrentPositionProvider,
   LocationPermissionGateway,
@@ -85,10 +86,11 @@ export async function requestCamera(
 }
 
 export async function handleCameraOutcome(
+  processor: VisitPhotoProcessor,
   storage: DurablePhotoStorage,
   outcome: CameraCaptureOutcome,
 ): Promise<VisitEvidenceState> {
-  const result = await prepareVisitPhoto(storage, outcome);
+  const result = await prepareVisitPhoto(processor, storage, outcome);
 
   switch (result.kind) {
     case 'captured':
